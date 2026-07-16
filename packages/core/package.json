@@ -1,0 +1,13 @@
+{
+  "name": "@semideus/core",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "ai": "^7.0.29",
+    "zod": "^4.4.3"
+  }
+}

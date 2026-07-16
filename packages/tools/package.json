@@ -1,0 +1,15 @@
+{
+  "name": "@semideus/tools",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@semideus/core": "workspace:*",
+    "diff": "^9.0.0",
+    "fast-glob": "^3.3.3",
+    "zod": "^4.4.3"
+  }
+}

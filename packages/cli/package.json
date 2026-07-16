@@ -1,0 +1,19 @@
+{
+  "name": "@semideus/code",
+  "version": "0.0.1",
+  "type": "module",
+  "bin": {
+    "demi": "./src/main.ts"
+  },
+  "exports": {
+    ".": "./src/main.ts"
+  },
+  "dependencies": {
+    "@semideus/core": "workspace:*",
+    "@semideus/learning": "workspace:*",
+    "@semideus/providers": "workspace:*",
+    "@semideus/tools": "workspace:*",
+    "@semideus/tui": "workspace:*",
+    "smol-toml": "^1.7.0"
+  }
+}

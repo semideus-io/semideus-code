@@ -1,0 +1,16 @@
+{
+  "name": "@semideus/providers",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@ai-sdk/anthropic": "^4.0.15",
+    "@ai-sdk/openai-compatible": "^3.0.11",
+    "@semideus/core": "workspace:*",
+    "ai": "^7.0.29",
+    "zod": "^4.4.3"
+  }
+}

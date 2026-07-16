@@ -1,0 +1,14 @@
+{
+  "name": "@semideus/tui",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@semideus/core": "workspace:*",
+    "ink": "^7.1.1",
+    "react": "^19.2.7"
+  }
+}

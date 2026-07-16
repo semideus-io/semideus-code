@@ -1,0 +1,173 @@
+import { unlinkSync } from "node:fs";
+import type { ModelMessage } from "ai";
+import type { AgentEvent, DecisionEvent, EventSink, UsageTotals } from "./contracts/events";
+import type { ModelSpec } from "./contracts/provider";
+import type { ToolContext } from "./contracts/tool";
+import type { PermissionGate } from "./permissions";
+import type { ToolRegistry } from "./registry";
+import type { SessionStore } from "./store";
+
+export type SessionMode = "default" | "explain";
+
+export interface SessionConfig {
+  maxSteps: number;
+  mode: SessionMode;
+}
+
+const DEFAULT_CONFIG: SessionConfig = { maxSteps: 32, mode: "default" };
+
+export interface SessionInit {
+  cwd: string;
+  model: ModelSpec;
+  registry: ToolRegistry;
+  gate: PermissionGate;
+  store: SessionStore;
+  onEvent?: EventSink;
+  config?: Partial<SessionConfig>;
+  /** Contents of the repo's AGENTS.md, injected into the system prompt. */
+  projectMemory?: string;
+}
+
+export class Session {
+  readonly id: string;
+  readonly cwd: string;
+  readonly model: ModelSpec;
+  readonly registry: ToolRegistry;
+  readonly gate: PermissionGate;
+  readonly store: SessionStore;
+  readonly createdAt: number;
+  readonly config: SessionConfig;
+  projectMemory: string;
+
+  messages: ModelMessage[] = [];
+  usage: UsageTotals = { inputTokens: 0, outputTokens: 0, costUsd: 0 };
+
+  private readonly onEvent?: EventSink;
+  private stepCounter = 0;
+  private decisionsCache: DecisionEvent[] = [];
+
+  constructor(
+    init: SessionInit,
+    resume?: { id: string; data: ReturnType<SessionStore["loadSession"]> },
+  ) {
+    this.id = resume?.id ?? crypto.randomUUID();
+    this.cwd = init.cwd;
+    this.model = init.model;
+    this.registry = init.registry;
+    this.gate = init.gate;
+    this.store = init.store;
+    this.onEvent = init.onEvent;
+    this.config = { ...DEFAULT_CONFIG, ...init.config };
+    this.projectMemory = init.projectMemory ?? "";
+    this.createdAt = resume?.data?.createdAt ?? Date.now();
+    if (resume?.data) {
+      this.messages = resume.data.messages;
+      this.usage = resume.data.usage;
+      this.config.mode = (resume.data.mode as SessionMode) ?? this.config.mode;
+      this.decisionsCache = this.store.decisions(this.id);
+      this.stepCounter = this.decisionsCache.at(-1)?.step ?? 0;
+    }
+  }
+
+  static resume(
+    store: SessionStore,
+    id: string,
+    init: Omit<SessionInit, "store" | "cwd">,
+  ): Session {
+    const data = store.loadSession(id);
+    if (!data) throw new Error(`no session with id ${id}`);
+    return new Session({ ...init, store, cwd: data.cwd }, { id, data });
+  }
+
+  emit(event: AgentEvent): void {
+    this.onEvent?.(event);
+  }
+
+  nextStep(): number {
+    return ++this.stepCounter;
+  }
+
+  logDecision(d: Omit<DecisionEvent, "ts" | "sessionId">): void {
+    const event: DecisionEvent = { ...d, ts: Date.now(), sessionId: this.id };
+    this.decisionsCache.push(event);
+    this.store.logDecision(event);
+  }
+
+  decisions(): DecisionEvent[] {
+    return this.decisionsCache;
+  }
+
+  trackUsage(u: { inputTokens?: number; outputTokens?: number }): void {
+    const input = u.inputTokens ?? 0;
+    const output = u.outputTokens ?? 0;
+    this.usage.inputTokens += input;
+    this.usage.outputTokens += output;
+    this.usage.costUsd +=
+      (input / 1_000_000) * this.model.costPerMTok.in +
+      (output / 1_000_000) * this.model.costPerMTok.out;
+  }
+
+  /** Capture a file's pre-mutation state; grouped by step so /undo restores per-action. */
+  async snapshot(absPath: string, step: number): Promise<void> {
+    const file = Bun.file(absPath);
+    const existed = await file.exists();
+    const content = existed ? await file.text() : null;
+    this.store.saveSnapshot(this.id, step, absPath, existed, content);
+  }
+
+  toolContext(step: number): ToolContext {
+    return {
+      cwd: this.cwd,
+      sessionId: this.id,
+      step,
+      snapshot: (absPath: string) => this.snapshot(absPath, step),
+    };
+  }
+
+  /** Restore the files touched by the most recent mutating step. Returns restored paths. */
+  async undoLast(): Promise<string[]> {
+    const step = this.store.latestSnapshotStep(this.id);
+    if (step === null) return [];
+    const rows = this.store.snapshotsForStep(this.id, step);
+    const restored: string[] = [];
+    for (const row of rows) {
+      if (row.existed && row.content !== null) {
+        await Bun.write(row.path, row.content);
+      } else {
+        try {
+          unlinkSync(row.path);
+        } catch {
+          // already gone — restoring "did not exist" is satisfied
+        }
+      }
+      restored.push(row.path);
+    }
+    this.store.deleteSnapshotsForStep(this.id, step);
+    return restored;
+  }
+
+  title(): string {
+    const firstUser = this.messages.find((m) => m.role === "user");
+    const text =
+      typeof firstUser?.content === "string"
+        ? firstUser.content
+        : (firstUser?.content ?? [])
+            .map((part) => (part.type === "text" ? part.text : ""))
+            .join(" ");
+    return (text || "(empty session)").replace(/\s+/g, " ").trim().slice(0, 80);
+  }
+
+  async persist(): Promise<void> {
+    this.store.upsertSession({
+      id: this.id,
+      createdAt: this.createdAt,
+      updatedAt: Date.now(),
+      cwd: this.cwd,
+      title: this.title(),
+      model: this.model.id,
+      mode: this.config.mode,
+      messages: this.messages,
+      usage: this.usage,
+    });
+  }
+}
