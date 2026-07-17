@@ -28,6 +28,11 @@ describe("truncateMiddle", () => {
   test("short text passes through", () => {
     expect(truncateMiddle("short", 100)).toBe("short");
   });
+
+  test("text exactly at max length passes through unchanged", () => {
+    const text = "x".repeat(40);
+    expect(truncateMiddle(text, 40)).toBe(text);
+  });
 });
 
 describe("firstLine", () => {
