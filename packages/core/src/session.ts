@@ -26,6 +26,9 @@ const DEFAULT_CONFIG: SessionConfig = { maxSteps: 32, mode: "default" };
 const CACHE_WRITE_MULTIPLIER = 1.25;
 const CACHE_READ_MULTIPLIER = 0.1;
 
+/** Warn once when a step's prompt crosses this share of the model's window. */
+const CONTEXT_WARN_RATIO = 0.7;
+
 /** What the loop reports per model step — mirrors the AI SDK's usage shape. */
 export interface StepUsage {
   inputTokens?: number | undefined;
@@ -73,6 +76,7 @@ export class Session {
   private readonly onEvent?: EventSink;
   private stepCounter = 0;
   private decisionsCache: DecisionEvent[] = [];
+  private contextWarned = false;
 
   constructor(
     init: SessionInit,
@@ -151,6 +155,17 @@ export class Session {
       totals.cacheReadTokens += cacheRead;
       totals.cacheWriteTokens += cacheWrite;
       totals.costUsd += costUsd;
+    }
+
+    // A step's prompt tokens are the whole history — the live context size.
+    const window = this.model.contextWindow;
+    if (!this.contextWarned && window > 0 && input >= CONTEXT_WARN_RATIO * window) {
+      this.contextWarned = true;
+      const pct = Math.round((input / window) * 100);
+      this.emit({
+        type: "notice",
+        text: `context ≈ ${pct}% of the ${Math.round(window / 1000)}k-token window — long sessions degrade and cost more; consider wrapping up (compaction lands in phase 3)`,
+      });
     }
   }
 
