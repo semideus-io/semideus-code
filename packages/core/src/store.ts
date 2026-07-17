@@ -34,7 +34,13 @@ export function defaultDataDir(): string {
   return join(base, "demi");
 }
 
-const EMPTY_USAGE: UsageTotals = { inputTokens: 0, outputTokens: 0, costUsd: 0 };
+const EMPTY_USAGE: UsageTotals = {
+  inputTokens: 0,
+  outputTokens: 0,
+  cacheReadTokens: 0,
+  cacheWriteTokens: 0,
+  costUsd: 0,
+};
 
 /**
  * Everything demi remembers lives here: sessions (messages as one JSON blob —

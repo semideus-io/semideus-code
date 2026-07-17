@@ -26,8 +26,13 @@ export interface DecisionEvent {
 }
 
 export interface UsageTotals {
+  /** Total prompt tokens, including the cached portions below. */
   inputTokens: number;
   outputTokens: number;
+  /** Prompt tokens served from the provider's cache (billed at ~0.1× the input rate). */
+  cacheReadTokens: number;
+  /** Prompt tokens written to the provider's cache (billed at ~1.25× the input rate). */
+  cacheWriteTokens: number;
   costUsd: number;
 }
 

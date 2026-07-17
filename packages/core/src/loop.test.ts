@@ -40,6 +40,7 @@ function makeSession(opts: {
   policy?: Partial<PermissionPolicy>;
   events?: AgentEvent[];
   prompts?: unknown[];
+  usage?: { total: number; cacheRead?: number; cacheWrite?: number };
 }): Session {
   let call = 0;
   const model = new MockLanguageModelV3({
@@ -52,10 +53,10 @@ function makeSession(opts: {
         finishReason: { unified: res?.finishReason ?? "stop", raw: undefined },
         usage: {
           inputTokens: {
-            total: 10,
+            total: opts.usage?.total ?? 10,
             noCache: undefined,
-            cacheRead: undefined,
-            cacheWrite: undefined,
+            cacheRead: opts.usage?.cacheRead,
+            cacheWrite: opts.usage?.cacheWrite,
           },
           outputTokens: { total: 5, text: undefined, reasoning: undefined },
         },
@@ -150,6 +151,21 @@ describe("runTurn", () => {
     expect(events.some((e) => e.type === "tool-denied")).toBe(true);
     // the second model call must see the denial in its prompt
     expect(JSON.stringify(prompts[1])).toContain("denied");
+  });
+
+  test("cache reads and writes are tracked and priced at their discounted rates", async () => {
+    const session = makeSession({
+      responses: [{ content: [{ type: "text", text: "done" }], finishReason: "stop" }],
+      usage: { total: 50, cacheRead: 30, cacheWrite: 10 },
+    });
+
+    await runTurn(session, "hi");
+
+    expect(session.usage.inputTokens).toBe(50);
+    expect(session.usage.cacheReadTokens).toBe(30);
+    expect(session.usage.cacheWriteTokens).toBe(10);
+    // 10 uncached + 10 written ×1.25 + 30 read ×0.1 at $1/MTok in, 5 out at $2/MTok
+    expect(session.usage.costUsd).toBeCloseTo((10 + 12.5 + 3) / 1e6 + (5 * 2) / 1e6, 12);
   });
 
   test("session persists after the turn", async () => {

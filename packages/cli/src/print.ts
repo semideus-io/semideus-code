@@ -37,7 +37,11 @@ export function printEvent(event: AgentEvent): void {
 }
 
 export function formatUsage(u: UsageTotals): string {
-  return `${u.inputTokens.toLocaleString()} in → ${u.outputTokens.toLocaleString()} out tok · ~$${u.costUsd.toFixed(4)}`;
+  const cached =
+    u.cacheReadTokens > 0
+      ? ` (${Math.round((100 * u.cacheReadTokens) / u.inputTokens)}% cached)`
+      : "";
+  return `${u.inputTokens.toLocaleString()} in${cached} → ${u.outputTokens.toLocaleString()} out tok · ~$${u.costUsd.toFixed(4)}`;
 }
 
 function printDiff(diff: string): void {

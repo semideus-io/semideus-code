@@ -13,6 +13,9 @@ export const DEFAULT_CONFIG_TOML = `# demi — Semideus Code configuration
 # Model entries here are merged over the built-ins ("default", "cheap").
 # cost_in / cost_out are USD per million tokens and only drive /cost estimates —
 # keep them current with your provider's pricing.
+# prompt_cache (default true, Anthropic only) marks cache breakpoints on the
+# system prompt and recent history, so agent steps re-read the conversation at
+# ~0.1× the input price instead of re-buying it. Set false to disable per model.
 
 [models.default]
 provider = "anthropic"

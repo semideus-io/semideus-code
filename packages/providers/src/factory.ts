@@ -1,6 +1,8 @@
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import type { ModelSpec } from "@semideus/core";
+import { wrapLanguageModel } from "ai";
+import { anthropicPromptCache } from "./cache";
 import { ConfigError, type ModelConfig } from "./config";
 
 export function buildModelSpec(
@@ -24,7 +26,11 @@ export function buildModelSpec(
       );
     }
     const anthropic = createAnthropic({ apiKey });
-    return toSpec(id, cfg, anthropic(cfg.model));
+    const base = anthropic(cfg.model);
+    const model = cfg.prompt_cache
+      ? wrapLanguageModel({ model: base, middleware: anthropicPromptCache() })
+      : base;
+    return toSpec(id, cfg, model);
   }
 
   // openai-compatible: Ollama, LM Studio, vLLM, OpenRouter, …

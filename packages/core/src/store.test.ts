@@ -13,7 +13,13 @@ describe("SessionStore", () => {
       model: "default",
       mode: "explain",
       messages: [{ role: "user", content: "hi" }],
-      usage: { inputTokens: 10, outputTokens: 5, costUsd: 0.01 },
+      usage: {
+        inputTokens: 10,
+        outputTokens: 5,
+        cacheReadTokens: 0,
+        cacheWriteTokens: 0,
+        costUsd: 0.01,
+      },
     });
     const loaded = store.loadSession("s1");
     expect(loaded?.messages).toEqual([{ role: "user", content: "hi" }]);

@@ -16,6 +16,30 @@ export interface SessionConfig {
 
 const DEFAULT_CONFIG: SessionConfig = { maxSteps: 32, mode: "default" };
 
+/**
+ * Cache-token pricing relative to the plain input rate, following Anthropic's
+ * shape (ephemeral 5m: writes 1.25×, reads 0.1×). Like everything cost-related
+ * these are estimates — config cost_in/cost_out carry the same caveat.
+ */
+const CACHE_WRITE_MULTIPLIER = 1.25;
+const CACHE_READ_MULTIPLIER = 0.1;
+
+/** What the loop reports per model step — mirrors the AI SDK's usage shape. */
+export interface StepUsage {
+  inputTokens?: number | undefined;
+  outputTokens?: number | undefined;
+  inputTokenDetails?:
+    | {
+        cacheReadTokens?: number | undefined;
+        cacheWriteTokens?: number | undefined;
+      }
+    | undefined;
+}
+
+export function emptyUsage(): UsageTotals {
+  return { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0, costUsd: 0 };
+}
+
 export interface SessionInit {
   cwd: string;
   model: ModelSpec;
@@ -40,7 +64,7 @@ export class Session {
   projectMemory: string;
 
   messages: ModelMessage[] = [];
-  usage: UsageTotals = { inputTokens: 0, outputTokens: 0, costUsd: 0 };
+  usage: UsageTotals = emptyUsage();
 
   private readonly onEvent?: EventSink;
   private stepCounter = 0;
@@ -97,14 +121,21 @@ export class Session {
     return this.decisionsCache;
   }
 
-  trackUsage(u: { inputTokens?: number; outputTokens?: number }): void {
+  trackUsage(u: StepUsage): void {
     const input = u.inputTokens ?? 0;
     const output = u.outputTokens ?? 0;
+    const cacheRead = u.inputTokenDetails?.cacheReadTokens ?? 0;
+    const cacheWrite = u.inputTokenDetails?.cacheWriteTokens ?? 0;
+    const uncached = Math.max(0, input - cacheRead - cacheWrite);
     this.usage.inputTokens += input;
     this.usage.outputTokens += output;
+    this.usage.cacheReadTokens += cacheRead;
+    this.usage.cacheWriteTokens += cacheWrite;
     this.usage.costUsd +=
-      (input / 1_000_000) * this.model.costPerMTok.in +
-      (output / 1_000_000) * this.model.costPerMTok.out;
+      ((uncached + CACHE_WRITE_MULTIPLIER * cacheWrite + CACHE_READ_MULTIPLIER * cacheRead) *
+        this.model.costPerMTok.in +
+        output * this.model.costPerMTok.out) /
+      1_000_000;
   }
 
   /** Capture a file's pre-mutation state; grouped by step so /undo restores per-action. */

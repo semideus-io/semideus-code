@@ -11,6 +11,7 @@ export const modelConfigSchema = z.object({
   tool_mode: z.enum(["native", "json-fallback", "xml-repair"]).default("native"),
   cost_in: z.number().nonnegative().default(0),
   cost_out: z.number().nonnegative().default(0),
+  prompt_cache: z.boolean().default(true),
 });
 
 export type ModelConfig = z.infer<typeof modelConfigSchema>;
@@ -49,6 +50,7 @@ export const BUILTIN_MODELS: Record<string, ModelConfig> = {
     tool_mode: "native",
     cost_in: 3,
     cost_out: 15,
+    prompt_cache: true,
   },
   cheap: {
     provider: "anthropic",
@@ -57,6 +59,7 @@ export const BUILTIN_MODELS: Record<string, ModelConfig> = {
     tool_mode: "native",
     cost_in: 1,
     cost_out: 5,
+    prompt_cache: true,
   },
 };
 
