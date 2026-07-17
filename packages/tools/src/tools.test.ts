@@ -81,6 +81,12 @@ describe("bash", () => {
     expect(res.output).toContain("hello");
   });
 
+  test("preview carries the full command, not the truncated summary", async () => {
+    const command = `echo ${"x".repeat(120)}\necho second line`;
+    const preview = await bashTool.preview?.({ command }, ctx);
+    expect(preview?.command).toBe(command);
+  });
+
   test("non-zero exit is not ok and stderr is shown", async () => {
     const res = await bashTool.run({ command: "echo oops >&2; exit 3" }, ctx);
     expect(res.ok).toBe(false);

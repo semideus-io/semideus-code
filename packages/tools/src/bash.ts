@@ -28,6 +28,11 @@ export const bashTool: Tool<typeof schema> = {
   schema,
   permission: "execute",
   summarize: (input) => input.description ?? `$ ${input.command.split("\n")[0]?.slice(0, 100)}`,
+  // The summary truncates (and may be the model's own description of the
+  // command) — approval must show the full command that will actually run.
+  async preview(input) {
+    return { command: input.command };
+  },
   async run(input, ctx) {
     const timeout = input.timeout_ms ?? DEFAULT_TIMEOUT_MS;
     const proc = Bun.spawn(["bash", "-c", input.command], {

@@ -86,4 +86,35 @@ describe("edit_file", () => {
     expect(res.ok).toBe(false);
     expect(res.output).toContain("outside the workspace");
   });
+
+  test("preview computes the run's exact diff without touching anything", async () => {
+    const original = "const a = 1;\nconst b = 2;\n";
+    const { ctx, file, snapshots } = setup(original);
+    const input = { path: "sample.ts", old_string: "const b = 2;", new_string: "const b = 3;" };
+
+    const preview = await editFileTool.preview?.(input, ctx);
+    expect(preview?.diff).toContain("+const b = 3;");
+    expect(await Bun.file(file).text()).toBe(original);
+    expect(snapshots).toEqual([]);
+
+    // the diff the user approved is the diff that gets applied
+    const res = await editFileTool.run(input, ctx);
+    expect(res.artifacts?.diff).toBe(preview?.diff);
+  });
+
+  test("preview returns null on every failure path", async () => {
+    const { ctx } = setup("let x = 0;\nlet x = 0;\n");
+    expect(
+      await editFileTool.preview?.({ path: "nope.ts", old_string: "a", new_string: "b" }, ctx),
+    ).toBeNull();
+    expect(
+      await editFileTool.preview?.(
+        { path: "sample.ts", old_string: "let x = 0;", new_string: "y" },
+        ctx,
+      ),
+    ).toBeNull();
+    expect(
+      await editFileTool.preview?.({ path: "/etc/hosts", old_string: "a", new_string: "b" }, ctx),
+    ).toBeNull();
+  });
 });

@@ -10,6 +10,27 @@ const schema = z.object({
   content: z.string().describe("Full file content to write"),
 });
 
+type WriteInput = z.infer<typeof schema>;
+
+type WritePlan =
+  | { ok: true; abs: string; rel: string; existed: boolean; diff: string }
+  | { ok: false; output: string };
+
+/** Read-only plan shared by preview() and run(): same checks, same diff. */
+async function planWrite(input: WriteInput, cwd: string): Promise<WritePlan> {
+  const abs = resolvePath(cwd, input.path);
+  const rel = displayPath(cwd, abs);
+  if (!insideWorkspace(cwd, abs)) {
+    return { ok: false, output: `refusing to write outside the workspace: ${rel}` };
+  }
+
+  const file = Bun.file(abs);
+  const existed = await file.exists();
+  const before = existed ? await file.text() : "";
+  const diff = createTwoFilesPatch(rel, rel, before, input.content, "", "", { context: 3 });
+  return { ok: true, abs, rel, existed, diff };
+}
+
 export const writeFileTool: Tool<typeof schema> = {
   name: "write_file",
   description:
@@ -17,26 +38,26 @@ export const writeFileTool: Tool<typeof schema> = {
   schema,
   permission: "write",
   summarize: (input) => `write ${input.path} (${input.content.length} chars)`,
-  async run(input, ctx) {
-    const abs = resolvePath(ctx.cwd, input.path);
-    const rel = displayPath(ctx.cwd, abs);
-    if (!insideWorkspace(ctx.cwd, abs)) {
-      return { ok: false, output: `refusing to write outside the workspace: ${rel}` };
+  async preview(input, ctx) {
+    try {
+      const plan = await planWrite(input, ctx.cwd);
+      return plan.ok ? { path: plan.rel, diff: plan.diff } : null;
+    } catch {
+      return null;
     }
+  },
+  async run(input, ctx) {
+    const plan = await planWrite(input, ctx.cwd);
+    if (!plan.ok) return plan;
 
-    const file = Bun.file(abs);
-    const existed = await file.exists();
-    const before = existed ? await file.text() : "";
+    await ctx.snapshot(plan.abs);
+    mkdirSync(dirname(plan.abs), { recursive: true });
+    await Bun.write(plan.abs, input.content);
 
-    await ctx.snapshot(abs);
-    mkdirSync(dirname(abs), { recursive: true });
-    await Bun.write(abs, input.content);
-
-    const diff = createTwoFilesPatch(rel, rel, before, input.content, "", "", { context: 3 });
     return {
       ok: true,
-      output: `${existed ? "overwrote" : "created"} ${rel} (${input.content.length} chars)`,
-      artifacts: { path: rel, diff },
+      output: `${plan.existed ? "overwrote" : "created"} ${plan.rel} (${input.content.length} chars)`,
+      artifacts: { path: plan.rel, diff: plan.diff },
     };
   },
 };

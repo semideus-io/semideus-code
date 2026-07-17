@@ -66,8 +66,9 @@ Where things go:
 3. `summarize(input)` — one line, readable in an approval prompt.
 4. `run()` returns `ToolResult`; it **never throws**. Failure messages tell the model what to do differently ("matches 3 locations — add context").
 5. If it mutates: `ctx.snapshot(path)` before the mutation, refuse paths outside the workspace.
-6. Tests: happy path **and** every failure branch. Failure-path tests are not optional — the model reads these messages.
-7. Register in `builtinTools`.
+6. If approval needs more than the summary line (a diff, the full command): `preview()` — read-only, never throws, and sharing the plan/diff code with `run()` so the approved change is the applied change (ADR-0004).
+7. Tests: happy path **and** every failure branch. Failure-path tests are not optional — the model reads these messages.
+8. Register in `builtinTools`.
 
 **Adding a provider**: extend `modelConfigSchema` → handle in `buildModelSpec` → add a `[models.x]` example to `DEFAULT_CONFIG_TOML` → config test.
 
@@ -138,7 +139,6 @@ Anything that changes architecture, a dependency choice, or the product contract
 
 | Gap | Why deferred | Lands |
 |---|---|---|
-| Approval shows intent, not the diff | diff is computed inside `run()`; restructuring for pre-approval diffs belongs with the TUI overlay | phase 1 |
 | `json-fallback` / `xml-repair` accepted in config but not implemented | needs a local model on the bench to test against for real | phase 1 |
 | No repo map | biggest context feature, deserves its own focused build | phase 1 |
 | `bash` snapshots nothing | can't know what a command touches; shadow-git checkpoints are the real answer | phase 3 |

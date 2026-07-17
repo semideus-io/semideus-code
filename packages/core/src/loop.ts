@@ -159,7 +159,10 @@ async function executeCall(
   const summary = tool.summarize(parsed.data);
   s.emit({ type: "tool-start", step, tool: tool.name, summary, permission: tool.permission });
 
-  const verdict = await s.gate.check(tool, parsed.data, summary);
+  const preview = tool.preview?.bind(tool);
+  const verdict = await s.gate.check(tool, parsed.data, summary, {
+    preview: preview && (() => preview(parsed.data, s.toolContext(step))),
+  });
   let denied = false;
   let result: ToolResult;
   if (!verdict.allowed) {

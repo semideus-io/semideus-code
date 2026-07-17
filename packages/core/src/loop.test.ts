@@ -5,7 +5,12 @@ import type { AgentEvent } from "./contracts/events";
 import type { ModelSpec } from "./contracts/provider";
 import type { Tool } from "./contracts/tool";
 import { runTurn } from "./loop";
-import { PermissionGate, type PermissionPolicy } from "./permissions";
+import {
+  type ApprovalPrompter,
+  type ApprovalRequest,
+  PermissionGate,
+  type PermissionPolicy,
+} from "./permissions";
 import { ToolRegistry } from "./registry";
 import { Session } from "./session";
 import { SessionStore } from "./store";
@@ -85,6 +90,7 @@ function makeSession(opts: {
   events?: AgentEvent[];
   prompts?: unknown[];
   usage?: MockUsage;
+  prompter?: ApprovalPrompter;
 }): Session {
   let call = 0;
   const model = new MockLanguageModelV3({
@@ -116,13 +122,16 @@ function makeSession(opts: {
   const registry = new ToolRegistry();
   registry.register(opts.tool ?? echoTool());
 
-  const gate = new PermissionGate({
-    read: "allow",
-    write: "ask",
-    execute: "ask",
-    network: "ask",
-    ...opts.policy,
-  });
+  const gate = new PermissionGate(
+    {
+      read: "allow",
+      write: "ask",
+      execute: "ask",
+      network: "ask",
+      ...opts.policy,
+    },
+    opts.prompter,
+  );
 
   return new Session({
     cwd: process.cwd(),
@@ -237,6 +246,29 @@ describe("runTurn", () => {
     expect(loaded).not.toBeNull();
     expect(loaded?.messages.length).toBe(4);
     expect(loaded?.title).toContain("please echo hi");
+  });
+
+  test("the approval prompt carries the tool's preview", async () => {
+    const requests: ApprovalRequest[] = [];
+    const previewTool: Tool = {
+      ...echoTool("write"),
+      preview: async (input) => ({ diff: `+${(input as { message: string }).message}` }),
+    };
+    const session = makeSession({
+      responses: toolCallThenDone,
+      tool: previewTool,
+      prompter: async (req) => {
+        requests.push(req);
+        return "allow";
+      },
+    });
+
+    await runTurn(session, "please echo hi");
+
+    expect(requests).toHaveLength(1);
+    expect(requests[0]?.preview).toEqual({ diff: "+hi" });
+    // approved, so the tool actually ran
+    expect(JSON.stringify(session.messages)).toContain("echo: hi");
   });
 
   test("streams assistant deltas that concatenate to the assistant text", async () => {

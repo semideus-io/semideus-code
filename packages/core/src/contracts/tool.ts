@@ -31,6 +31,15 @@ export interface Tool<S extends z.ZodType = z.ZodType> {
   permission: PermissionClass;
   /** One-line "what is about to happen" — shown in approval prompts and logged to the decision log. */
   summarize(input: z.infer<S>): string;
+  /**
+   * What would happen, computed WITHOUT doing it — rendered in the approval
+   * prompt so the user approves the change itself, not a stated intent.
+   * Must be read-only (no writes, no snapshots) and never throw; return null
+   * when nothing useful can be computed (run() will surface the failure).
+   * run() recomputes from current disk state, so an executed change is honest
+   * even if the file moved between preview and approval.
+   */
+  preview?(input: z.infer<S>, ctx: ToolContext): Promise<ToolArtifacts | null>;
   /** Never throws: failures are `ok: false` with a message the model can act on. */
   run(input: z.infer<S>, ctx: ToolContext): Promise<ToolResult>;
 }

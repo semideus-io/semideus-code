@@ -90,4 +90,48 @@ describe("PermissionGate", () => {
     const gate = new PermissionGate(policy());
     expect(gate.resetSessionGrants()).toEqual([]);
   });
+
+  test("preview is lazy: skipped on allow, handed to the prompter on ask", async () => {
+    let computed = 0;
+    const preview = async () => {
+      computed++;
+      return { diff: "+new line" };
+    };
+
+    const allowGate = new PermissionGate(policy({ write: "allow" }));
+    await allowGate.check(writeTool, {}, "s", { preview });
+    expect(computed).toBe(0);
+
+    const requests: ApprovalRequest[] = [];
+    const askGate = new PermissionGate(policy(), async (req) => {
+      requests.push(req);
+      return "allow";
+    });
+    const verdict = await askGate.check(writeTool, {}, "s", { preview });
+    expect(verdict.allowed).toBe(true);
+    expect(computed).toBe(1);
+    expect(requests[0]?.preview).toEqual({ diff: "+new line" });
+  });
+
+  test("a crashing or empty preview degrades to the summary-only prompt", async () => {
+    const requests: ApprovalRequest[] = [];
+    const gate = new PermissionGate(policy(), async (req) => {
+      requests.push(req);
+      return "allow";
+    });
+
+    const crashing = await gate.check(writeTool, {}, "s", {
+      preview: async () => {
+        throw new Error("boom");
+      },
+    });
+    expect(crashing.allowed).toBe(true);
+
+    const empty = await gate.check(writeTool, {}, "s", { preview: async () => null });
+    expect(empty.allowed).toBe(true);
+
+    expect(requests).toHaveLength(2);
+    expect(requests[0]?.preview).toBeUndefined();
+    expect(requests[1]?.preview).toBeUndefined();
+  });
 });
