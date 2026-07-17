@@ -25,3 +25,8 @@ Format: `date · task · what ground · one-line fix idea`
 **2026-07-17** — seven of eight entries fixed (commits `cb60653…9533589`). The one left open — diff rendered before approval — is the phase-1 TUI overlay itself.
 
 **2026-07-17 (later)** — the eighth entry closed with the TUI build: streaming loop, pre-approval previews, Ink app (Static transcript · live region · approval overlay), TUI as the interactive surface. The phase-0 friction list is fully burned down; the next list starts from daily-driving the TUI.
+
+---
+
+- 2026-07-17 · **first TUI dogfood: session-picker scaffold** (interactive session) · building a real feature over the metered cloud API burns paid tokens fast enough to stop the session — dogfooding the daily driver at cloud `default` prices is not sustainable solo · route dogfood sessions to `cheap` by default and land the tool-mode fallbacks so a local model can carry them
+- 2026-07-17 · (same run) · the session ended with the scaffold uncommitted and test-less, and review caught a real bug in it: replay mapped tools to `tool-end` only, which renders *nothing* for successful read-class tools — replayed history would have been mostly invisible · prompt rule candidate: a feature isn't done without colocated tests and a green `bun run verify`; finished + verified via Claude Code (commits above), which is the fallback protocol working as intended
