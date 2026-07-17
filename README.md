@@ -53,6 +53,7 @@ Typed at the `you ›` prompt, always prefixed with `/`:
 | `/cost` | token + cost totals for this session |
 | `/undo` | restore files from the last mutating action (uses the pre-mutation snapshot) |
 | `/mode [default\|explain]` | show or switch the response mode |
+| `/permissions [reset]` | show the live permission policy per class; `reset` revokes "always this session" grants |
 | `/session` | print the current session id and title |
 | `/exit`, `/quit` | leave the REPL (also `ctrl-d`) |
 

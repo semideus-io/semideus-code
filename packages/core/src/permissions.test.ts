@@ -65,4 +65,29 @@ describe("PermissionGate", () => {
     expect((await gate.check(writeTool, {}, "s")).allowed).toBe(true);
     expect(asks).toBe(1);
   });
+
+  test("session grants are visible in the effective policy and revocable", async () => {
+    let asks = 0;
+    const gate = new PermissionGate(policy(), async () => {
+      asks++;
+      return "allow-session";
+    });
+
+    expect(gate.effective().write).toBe("ask");
+    await gate.check(writeTool, {}, "s");
+    expect(gate.effective().write).toBe("allow");
+    expect(gate.sessionGranted()).toEqual(["write"]);
+
+    expect(gate.resetSessionGrants()).toEqual(["write"]);
+    expect(gate.effective().write).toBe("ask");
+    expect(gate.sessionGranted()).toEqual([]);
+
+    await gate.check(writeTool, {}, "s");
+    expect(asks).toBe(2); // asks again once the grant is revoked
+  });
+
+  test("reset with nothing granted is a no-op and reports so", () => {
+    const gate = new PermissionGate(policy());
+    expect(gate.resetSessionGrants()).toEqual([]);
+  });
 });

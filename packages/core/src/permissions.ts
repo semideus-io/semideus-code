@@ -31,15 +31,42 @@ export interface Verdict {
  * The non-bypassable gate between the model's intent and the world.
  * Auto-accept is a policy setting that flows THROUGH here ("allow" rules,
  * or a user answering "allow-session") — never a code path around it.
+ *
+ * Base policy and in-session grants are kept apart so the live policy is
+ * always inspectable and "always this session" is revocable (/permissions).
  */
 export class PermissionGate {
+  private readonly base: PermissionPolicy;
+  private readonly sessionGrants = new Set<PermissionClass>();
+
   constructor(
-    private readonly policy: PermissionPolicy,
+    policy: PermissionPolicy,
     private readonly prompter?: ApprovalPrompter,
-  ) {}
+  ) {
+    this.base = { ...policy };
+  }
+
+  /** The policy as it applies right now: base rules overlaid with session grants. */
+  effective(): PermissionPolicy {
+    const policy = { ...this.base };
+    for (const granted of this.sessionGrants) policy[granted] = "allow";
+    return policy;
+  }
+
+  /** Classes the user granted with "always this session". */
+  sessionGranted(): PermissionClass[] {
+    return [...this.sessionGrants];
+  }
+
+  /** Revoke all in-session grants — the base policy applies again. Returns what was revoked. */
+  resetSessionGrants(): PermissionClass[] {
+    const revoked = [...this.sessionGrants];
+    this.sessionGrants.clear();
+    return revoked;
+  }
 
   async check(tool: Tool, input: unknown, summary: string): Promise<Verdict> {
-    const rule = this.policy[tool.permission];
+    const rule = this.effective()[tool.permission];
     if (rule === "allow") return { allowed: true };
     if (rule === "deny") {
       return { allowed: false, reason: `policy denies "${tool.permission}" actions` };
@@ -57,7 +84,7 @@ export class PermissionGate {
       input,
     });
     if (decision === "allow-session") {
-      this.policy[tool.permission] = "allow";
+      this.sessionGrants.add(tool.permission);
       return { allowed: true };
     }
     if (decision === "allow") return { allowed: true };

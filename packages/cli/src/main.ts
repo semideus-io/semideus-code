@@ -37,11 +37,12 @@ flags:
   -v, --version              version
 
 in the REPL:
-  /why [n]    decision log — every action with its stated rationale and artifacts
-  /cost       token + cost totals for this session
-  /undo       restore files from the last mutating action
-  /mode       switch default|explain
-  /help       commands`;
+  /why [n]           decision log — every action with its stated rationale and artifacts
+  /cost              token + cost totals for this session
+  /undo              restore files from the last mutating action
+  /mode              switch default|explain
+  /permissions       show the live permission policy ("reset" revokes session grants)
+  /help              commands`;
 
 async function main(): Promise<void> {
   const { values, positionals } = parseArgs({
@@ -256,6 +257,9 @@ async function repl(session: Session, rl: Interface): Promise<void> {
         case "session":
           console.log(`  ${session.id} — ${session.title()}`);
           break;
+        case "permissions":
+          printPermissions(session, rest[0]);
+          break;
         default:
           console.log(c.dim(`  unknown command /${cmd} — /help`));
       }
@@ -268,6 +272,29 @@ async function repl(session: Session, rl: Interface): Promise<void> {
       console.error(c.red(`turn failed: ${err instanceof Error ? err.message : String(err)}`));
     }
   }
+}
+
+function printPermissions(session: Session, arg?: string): void {
+  if (arg === "reset") {
+    const revoked = session.gate.resetSessionGrants();
+    console.log(
+      revoked.length === 0
+        ? "  no session grants to revoke"
+        : `  revoked session grants: ${revoked.join(", ")} — those actions will ask again`,
+    );
+    return;
+  }
+  if (arg) {
+    console.log(`  unknown argument "${arg}" (usage: /permissions [reset])`);
+    return;
+  }
+  const effective = session.gate.effective();
+  const granted = new Set(session.gate.sessionGranted());
+  for (const [cls, rule] of Object.entries(effective)) {
+    const marker = granted.has(cls as keyof typeof effective) ? c.magenta(" (session grant)") : "";
+    console.log(`  ${cls.padEnd(8)} ${rule}${marker}`);
+  }
+  if (granted.size > 0) console.log(c.dim("  /permissions reset revokes session grants"));
 }
 
 function printWhy(session: Session, stepArg?: string): void {
