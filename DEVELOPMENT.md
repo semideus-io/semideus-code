@@ -40,10 +40,10 @@ Optional: `cd packages/cli && bun link` to get a global `demi` while developing.
 ## 3. Repo topology and dependency rules
 
 ```
-cli ──► core, providers, tools, learning, tui   (wiring only)
-tui ──► core                                    (events + types only)
-tools, providers, learning ──► core
-core ──► ai, zod, bun builtins                  (no workspace deps)
+cli ──► core, providers, tools, learning, repomap, tui   (wiring only)
+tui ──► core                                             (events + types only)
+tools, providers, learning, repomap ──► core
+core ──► ai, zod, bun builtins                           (no workspace deps)
 ```
 
 Where things go:
@@ -55,6 +55,7 @@ Where things go:
 | a tool | `tools/src/<name>.ts` + registration in `tools/src/index.ts` |
 | a provider or config field | `providers/src/` (schema in `config.ts`, construction in `factory.ts`) |
 | anything learning (ledger, digest, recall, Semideus bridge) | `learning/src/` |
+| repo-map / context building (parse, rank, render, cache) | `repomap/src/` |
 | terminal rendering | `tui/src/` — headless printing stays in `cli/src/print.ts` |
 | a slash command | `cli/src/commands.ts` — one implementation, every renderer |
 
@@ -108,7 +109,7 @@ The rule from the plan, operationalized: **you must be dogfooding phase N daily 
 ### Phase 1 — Daily driver (weeks 2–4)
 - [x] Ink TUI: `<Static>` transcript, streaming live region, approval overlay with the diff rendered *before* approval *(landed 2026-07-17 — ADR-0004; PTY-verified live: streamed turn, diff-first approval, deny honored)*
 - [x] Streaming (`streamText`) in the loop, events unchanged *(landed 2026-07-17 — `assistant-delta` added for live regions; existing events untouched)*
-- [ ] Repo map: `web-tree-sitter` + personalized PageRank, ~1k-token budget, cached in `.demi/cache/` (dependency added when the feature lands — ADR-0003)
+- [x] Repo map: `web-tree-sitter` + personalized PageRank, ~1k-token budget, cached in `.demi/cache/` *(landed 2026-07-17 — ADR-0005; 70 files, 90ms cold / 2ms warm, ~986 tok on this repo; live-checked: cheap model names gate/event files from the map, zero tool calls)*
 - [ ] Tool-mode fallback tiers (`json-fallback`, `xml-repair`) proven against one local model
 - [x] Session picker for `resume`, context warnings at ~70% window *(landed 2026-07-17 — `resume --pick`, full transcript replay from stored messages, warn-once notice at 70% of the model window; PTY-verified)*
 - [ ] **Exit criterion**: demi is your default agent for this repo; a week of DOGFOOD.md entries
@@ -142,7 +143,7 @@ Anything that changes architecture, a dependency choice, or the product contract
 | No way to interrupt a running turn (esc) | needs AbortSignal plumbing through the loop; input is simply ignored while running | phase 1 |
 | TUI input is append-only — no cursor keys, no history | hand-rolled input stays minimal until dogfood says what's actually missed | when it hurts |
 | `json-fallback` / `xml-repair` accepted in config but not implemented | needs a local model on the bench to test against for real | phase 1 |
-| No repo map | biggest context feature, deserves its own focused build | phase 1 |
+| Repo map ranks uniformly at session start — no per-prompt personalization | needs a provider hook through core; uniform rank is already useful | when it hurts |
 | `bash` snapshots nothing | can't know what a command touches; shadow-git checkpoints are the real answer | phase 3 |
 | Messages stored as one JSON blob per session | fine at this scale; revisit if sessions grow or sync lands | when it hurts |
 | Costs in config are estimates | pricing changes; config comments say so | ongoing |

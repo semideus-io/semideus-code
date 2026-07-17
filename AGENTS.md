@@ -14,7 +14,7 @@ Terminal coding agent. Bun + TypeScript monorepo. Persona: **Daimon** — advise
 
 ## Layout & dependency rules
 
-`packages/{core,providers,tools,learning,tui,cli}`.
+`packages/{core,providers,tools,learning,repomap,tui,cli}`.
 
 - **All shared contracts live in `@semideus/core`** (`src/contracts/`): `Tool`, `ToolResult`, `ModelSpec`, `DecisionEvent`, `AgentEvent`, `Concept`. Core imports **no** workspace package (only `ai`, `zod`, builtins).
 - Every other package imports core. `cli` wires everything together. `tui` may only consume core events/types — never agent logic.
@@ -33,4 +33,4 @@ Terminal coding agent. Bun + TypeScript monorepo. Persona: **Daimon** — advise
 
 `docs/PLAN.md` — full product plan · `DEVELOPMENT.md` — way of working, phase gates · `docs/adr/` — decisions.
 
-Current phase: **1** (streaming + pre-approval diffs + Ink TUI shipped; repo map, tool-mode fallbacks, session picker remain). See DEVELOPMENT.md § Phase gates.
+Current phase: **1** (streaming, pre-approval diffs, Ink TUI, session picker + replay, context warnings, repo map shipped; tool-mode fallbacks remain). See DEVELOPMENT.md § Phase gates.
