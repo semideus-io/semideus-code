@@ -1,5 +1,16 @@
+import type { UsageTotals } from "./contracts/events";
+
 export function firstLine(text: string): string {
   return text.trim().split("\n", 1)[0] ?? "";
+}
+
+/** One-line usage summary shared by renderers: "12,340 in (85% cached) → 220 out tok · ~$0.0123". */
+export function formatUsage(u: UsageTotals): string {
+  const cached =
+    u.cacheReadTokens > 0
+      ? ` (${Math.round((100 * u.cacheReadTokens) / u.inputTokens)}% cached)`
+      : "";
+  return `${u.inputTokens.toLocaleString()} in${cached} → ${u.outputTokens.toLocaleString()} out tok · ~$${u.costUsd.toFixed(4)}`;
 }
 
 /** Keep head and tail, drop the middle — errors usually live at the end. */

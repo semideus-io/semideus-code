@@ -35,4 +35,4 @@ export {
   SessionStore,
   type SnapshotRow,
 } from "./store";
-export { extractRationale, firstLine, truncateMiddle } from "./text";
+export { extractRationale, firstLine, formatUsage, truncateMiddle } from "./text";

@@ -6,6 +6,7 @@ import { parseArgs } from "node:util";
 import {
   type ApprovalDecision,
   type ApprovalRequest,
+  formatUsage,
   PermissionGate,
   type PermissionPolicy,
   runTurn,
@@ -17,7 +18,7 @@ import { buildModelSpec, ConfigError, mergedModels } from "@semideus/providers";
 import { builtinTools } from "@semideus/tools";
 import { c } from "./colors";
 import { loadConfig } from "./config";
-import { formatUsage, printEvent } from "./print";
+import { printEvent } from "./print";
 
 const VERSION = "0.0.1";
 

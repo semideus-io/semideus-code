@@ -1,5 +1,5 @@
-import type { AgentEvent, UsageTotals } from "@semideus/core";
-import { firstLine } from "@semideus/core";
+import type { AgentEvent } from "@semideus/core";
+import { firstLine, formatUsage } from "@semideus/core";
 import { c } from "./colors";
 
 const MAX_DIFF_LINES = 80;
@@ -46,14 +46,6 @@ export function printEvent(event: AgentEvent): void {
       );
       break;
   }
-}
-
-export function formatUsage(u: UsageTotals): string {
-  const cached =
-    u.cacheReadTokens > 0
-      ? ` (${Math.round((100 * u.cacheReadTokens) / u.inputTokens)}% cached)`
-      : "";
-  return `${u.inputTokens.toLocaleString()} in${cached} → ${u.outputTokens.toLocaleString()} out tok · ~$${u.costUsd.toFixed(4)}`;
 }
 
 function printOutputTail(output: string): void {

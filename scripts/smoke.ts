@@ -6,8 +6,9 @@
  * under a cent. Requires ANTHROPIC_API_KEY. Never runs in CI.
  */
 import { loadConfig } from "../packages/cli/src/config";
-import { formatUsage, printEvent } from "../packages/cli/src/print";
+import { printEvent } from "../packages/cli/src/print";
 import {
+  formatUsage,
   PermissionGate,
   runTurn,
   Session,
