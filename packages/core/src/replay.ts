@@ -1,6 +1,7 @@
 import type { ModelMessage } from "ai";
 import type { ReplayItem } from "./contracts/replay";
 import type { ToolRegistry } from "./registry";
+import { ERROR_TAG, RESULT_TAG } from "./toolmode";
 
 interface CallInfo {
   toolName: string;
@@ -73,7 +74,10 @@ export function buildReplay(messages: ModelMessage[], registry: ToolRegistry): R
   for (const message of messages) {
     if (message.role === "user") {
       const text = textOf(message.content);
-      if (text) items.push({ kind: "user", text });
+      // Fallback-mode protocol traffic is user-role on the wire but not the
+      // human speaking — replay skips it rather than misattributing it.
+      const protocol = text.startsWith(RESULT_TAG) || text.startsWith(ERROR_TAG);
+      if (text && !protocol) items.push({ kind: "user", text });
       continue;
     }
     if (message.role === "assistant") {

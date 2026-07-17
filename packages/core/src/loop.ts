@@ -3,6 +3,12 @@ import type { ToolResult } from "./contracts/tool";
 import { buildSystemPrompt } from "./prompt";
 import type { Session } from "./session";
 import { extractRationale, firstLine, truncateMiddle } from "./text";
+import {
+  fallbackErrorMessage,
+  fallbackResultMessage,
+  parseFallbackCall,
+  toolProtocolPrompt,
+} from "./toolmode";
 
 /** Hard cap on what a single tool result feeds back into context. */
 const MAX_TOOL_OUTPUT = 48_000;
@@ -23,6 +29,8 @@ interface CallOutcome {
 interface StepResult {
   text: string;
   toolCalls: ToolCallLike[];
+  /** Fallback modes only: the call block existed but could not be used. */
+  parseError?: string;
 }
 
 /**
@@ -32,13 +40,22 @@ interface StepResult {
  * up front — failures (including the initial API error) arrive as error parts,
  * which this rethrows so the loop's error handling matches the old
  * generateText behavior: nothing tracked, nothing appended.
+ *
+ * Fallback tool modes (json-fallback / xml-repair) send no native tools:
+ * the protocol rides the system prompt, the step's text is parsed for one
+ * call block, and the synthesized call flows through the same executeCall —
+ * same validation, same permission gate.
  */
 async function streamStep(s: Session): Promise<StepResult> {
+  const native = s.model.toolMode === "native";
+  const system = native
+    ? buildSystemPrompt(s)
+    : `${buildSystemPrompt(s)}\n\n${toolProtocolPrompt(s.registry, s.model.toolMode)}`;
   const result = streamText({
     model: s.model.model,
-    system: buildSystemPrompt(s),
+    system,
     messages: s.messages,
-    tools: s.registry.asAiSdkTools(),
+    ...(native ? { tools: s.registry.asAiSdkTools() } : {}),
     // The default onError writes to console; errors reach renderers as an
     // AgentEvent instead (the error part below rethrows).
     onError: () => {},
@@ -53,11 +70,27 @@ async function streamStep(s: Session): Promise<StepResult> {
   }
 
   s.trackUsage(await result.totalUsage);
-  s.messages.push(...(await result.responseMessages));
-  return {
-    text: (await result.text).trim(),
-    toolCalls: (await result.toolCalls) as ToolCallLike[],
-  };
+  if (native) {
+    s.messages.push(...(await result.responseMessages));
+    return {
+      text: (await result.text).trim(),
+      toolCalls: (await result.toolCalls) as ToolCallLike[],
+    };
+  }
+
+  const text = (await result.text).trim();
+  if (text) s.messages.push({ role: "assistant", content: text });
+  const parsed = parseFallbackCall(text, s.model.toolMode);
+  if (parsed.kind === "call") {
+    return {
+      text: parsed.narration,
+      toolCalls: [{ toolCallId: crypto.randomUUID(), toolName: parsed.tool, input: parsed.input }],
+    };
+  }
+  if (parsed.kind === "error") {
+    return { text: parsed.narration, toolCalls: [], parseError: parsed.message };
+  }
+  return { text, toolCalls: [] };
 }
 
 /**
@@ -82,7 +115,23 @@ export async function runTurn(s: Session, userMessage: string): Promise<void> {
     }
 
     const text = res.text;
-    if (text) s.emit({ type: "assistant-text", text, final: res.toolCalls.length === 0 });
+    if (text) {
+      s.emit({
+        type: "assistant-text",
+        text,
+        final: res.toolCalls.length === 0 && !res.parseError,
+      });
+    }
+
+    if (res.parseError) {
+      // The fallback repair round-trip: name the damage, spend a step on it.
+      s.emit({
+        type: "notice",
+        text: `tool call unusable (${res.parseError}) — asked the model to re-emit`,
+      });
+      s.messages.push({ role: "user", content: fallbackErrorMessage(res.parseError) });
+      continue;
+    }
 
     if (res.toolCalls.length === 0) {
       s.logDecision({
@@ -100,25 +149,41 @@ export async function runTurn(s: Session, userMessage: string): Promise<void> {
     // Invalid calls (unknown tool, unparsable input) already carry an SDK-generated
     // error result in response.messages — answering them again would duplicate the
     // toolCallId and break the provider API.
+    const native = s.model.toolMode === "native";
     const calls = res.toolCalls.filter((call) => !call.invalid);
     const resultParts: ToolResultPart[] = [];
+    const fallbackResults: string[] = [];
     for (const call of calls) {
       const step = s.nextStep();
       const { result, denied } = await executeCall(s, call, step, rationale);
-      resultParts.push({
-        type: "tool-result",
-        toolCallId: call.toolCallId,
-        toolName: call.toolName,
-        output: denied
-          ? { type: "execution-denied", reason: result.output }
-          : {
-              type: result.ok ? "text" : "error-text",
-              value: truncateMiddle(result.output, MAX_TOOL_OUTPUT),
-            },
-      });
+      if (native) {
+        resultParts.push({
+          type: "tool-result",
+          toolCallId: call.toolCallId,
+          toolName: call.toolName,
+          output: denied
+            ? { type: "execution-denied", reason: result.output }
+            : {
+                type: result.ok ? "text" : "error-text",
+                value: truncateMiddle(result.output, MAX_TOOL_OUTPUT),
+              },
+        });
+      } else {
+        fallbackResults.push(
+          fallbackResultMessage(
+            call.toolName,
+            result.ok,
+            truncateMiddle(result.output, MAX_TOOL_OUTPUT),
+            denied,
+          ),
+        );
+      }
     }
     if (resultParts.length > 0) {
       s.messages.push({ role: "tool", content: resultParts });
+    }
+    if (fallbackResults.length > 0) {
+      s.messages.push({ role: "user", content: fallbackResults.join("\n") });
     }
   }
 
