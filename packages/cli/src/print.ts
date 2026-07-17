@@ -59,7 +59,7 @@ function printOutputTail(output: string): void {
   for (const line of tail) console.log(c.dim(`  ${line}`));
 }
 
-function printDiff(diff: string): void {
+export function printDiff(diff: string): void {
   const lines = diff.split("\n");
   const body = lines.slice(0, MAX_DIFF_LINES);
   for (const line of body) {

@@ -58,7 +58,14 @@ export function App({ handle, approvals, banner, model, sessionId }: AppProps) {
   const [running, setRunning] = useState(false);
   const [pending, setPending] = useState<PendingApproval | null>(null);
   const [input, setInput] = useState("");
+  // Mirror of `input` for the key handler: chunks can arrive faster than renders.
+  const inputRef = useRef("");
   const [sessionCost, setSessionCost] = useState(0);
+
+  const setBuffer = useCallback((value: string) => {
+    inputRef.current = value;
+    setInput(value);
+  }, []);
 
   const append = useCallback((item: TranscriptItem) => {
     const id = nextId.current++;
@@ -131,18 +138,25 @@ export function App({ handle, approvals, banner, model, sessionId }: AppProps) {
       return;
     }
     if (running) return;
-    if (key.return) {
-      const line = input.trim();
-      if (!line) return;
-      setInput("");
-      handleLine(line);
-      return;
-    }
     if (key.backspace || key.delete) {
-      setInput((s) => s.slice(0, -1));
+      setBuffer(inputRef.current.slice(0, -1));
       return;
     }
-    if (char && !key.ctrl && !key.meta) setInput((s) => s + char);
+    if (key.ctrl || key.meta) return;
+
+    // Input can arrive as a multi-character chunk (paste, piped input) with
+    // the newline inline rather than as a return keypress — treat any newline
+    // as submit, joining inner lines visibly with spaces.
+    const text = char.replace(/\r\n?/g, "\n");
+    const submits = key.return || text.includes("\n");
+    const body = text.split("\n").filter(Boolean).join(" ");
+    if (submits) {
+      const line = (inputRef.current + body).trim();
+      setBuffer("");
+      if (line) handleLine(line);
+    } else if (body) {
+      setBuffer(inputRef.current + body);
+    }
   });
 
   return (

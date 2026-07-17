@@ -4,28 +4,31 @@ import { join } from "node:path";
 import { createInterface, type Interface } from "node:readline/promises";
 import { parseArgs } from "node:util";
 import {
+  type AgentEvent,
   type ApprovalDecision,
   type ApprovalRequest,
-  formatUsage,
   PermissionGate,
   type PermissionPolicy,
   runTurn,
   Session,
+  type SessionInit,
   SessionStore,
   ToolRegistry,
 } from "@semideus/core";
 import { buildModelSpec, ConfigError, mergedModels } from "@semideus/providers";
 import { builtinTools } from "@semideus/tools";
+import { ApprovalBridge, runTui, type TuiHandle } from "@semideus/tui";
 import { c } from "./colors";
+import { type CommandState, runCommand } from "./commands";
 import { loadConfig } from "./config";
-import { printEvent } from "./print";
+import { printDiff, printEvent } from "./print";
 
 const VERSION = "0.0.1";
 
-const HELP = `demi — Semideus Code (phase 0)
+const HELP = `demi — Semideus Code (phase 1)
 
 usage:
-  demi                       interactive REPL
+  demi                       interactive TUI
   demi -p "task"             one-shot headless run
   demi sessions              list stored sessions
   demi resume [id]           resume a session (latest if no id)
@@ -37,13 +40,14 @@ flags:
   -h, --help                 this help
   -v, --version              version
 
-in the REPL:
+commands (TUI):
   /why [n]           decision log — every action with its stated rationale and artifacts
   /cost              token + cost totals for this session
   /undo              restore files from the last mutating action
   /mode              switch default|explain
   /permissions       show the live permission policy ("reset" revokes session grants)
-  /help              commands`;
+  /help              commands
+  /exit              leave (ctrl+c works too)`;
 
 async function main(): Promise<void> {
   const { values, positionals } = parseArgs({
@@ -97,9 +101,6 @@ interface ChatFlags {
 
 async function startChat(flags: ChatFlags, resumeId?: string): Promise<void> {
   const { config, path: configPath, created } = loadConfig();
-  if (created) {
-    console.log(c.dim(`wrote default config to ${configPath}`));
-  }
 
   const spec = buildModelSpec(flags.model ?? "default", mergedModels(config));
   const store = new SessionStore();
@@ -111,25 +112,96 @@ async function startChat(flags: ChatFlags, resumeId?: string): Promise<void> {
     ? { read: "allow", write: "allow", execute: "allow", network: "allow" }
     : { ...config.permissions };
 
-  const interactive = process.stdin.isTTY === true && !flags.prompt;
-  const rl = process.stdin.isTTY
-    ? createInterface({ input: process.stdin, output: process.stdout })
-    : null;
-  const gate = new PermissionGate(policy, rl ? approvalPrompter(rl) : undefined);
-
   const agentsPath = join(process.cwd(), "AGENTS.md");
   const projectMemory = existsSync(agentsPath) ? readFileSync(agentsPath, "utf8") : "";
+  const sessionConfig = { maxSteps: config.limits.max_steps };
 
-  const deps = {
+  if (flags.prompt) {
+    if (created) console.log(c.dim(`wrote default config to ${configPath}`));
+    const rl = process.stdin.isTTY
+      ? createInterface({ input: process.stdin, output: process.stdout })
+      : null;
+    const gate = new PermissionGate(policy, rl ? approvalPrompter(rl) : undefined);
+    const opened = openSession(store, resumeId, {
+      model: spec,
+      registry,
+      gate,
+      onEvent: printEvent,
+      config: sessionConfig,
+      projectMemory,
+    });
+    if (!opened) {
+      rl?.close();
+      return;
+    }
+    if (opened.resumedLine) console.log(c.dim(opened.resumedLine));
+    try {
+      await runTurn(opened.session, flags.prompt);
+    } catch (err) {
+      console.error(c.red(`turn failed: ${err instanceof Error ? err.message : String(err)}`));
+      process.exitCode = 1;
+    }
+    rl?.close();
+    return;
+  }
+
+  if (process.stdin.isTTY !== true) {
+    console.error(c.red('no prompt given and stdin is not a terminal — use -p "task"'));
+    process.exitCode = 1;
+    return;
+  }
+
+  // Interactive: the Ink TUI renders core events; approvals flow through the
+  // bridge into the overlay — still through PermissionGate.check, always.
+  const bridge = new ApprovalBridge();
+  const gate = new PermissionGate(policy, bridge.prompter);
+  const sinks = new Set<(event: AgentEvent) => void>();
+  const opened = openSession(store, resumeId, {
     model: spec,
     registry,
     gate,
-    onEvent: printEvent,
-    config: { maxSteps: config.limits.max_steps },
+    onEvent: (event) => {
+      for (const sink of sinks) sink(event);
+    },
+    config: sessionConfig,
     projectMemory,
+  });
+  if (!opened) return;
+  const { session } = opened;
+
+  const commandState: CommandState = { whyDisclaimerShown: false };
+  const handle: TuiHandle = {
+    subscribe(sink) {
+      sinks.add(sink);
+      return () => sinks.delete(sink);
+    },
+    submit: (text) => runTurn(session, text),
+    command: (line) => runCommand(session, line, commandState, HELP),
   };
 
-  let session: Session;
+  const bannerLines = [
+    `model ${spec.id} → ${spec.modelName} · session ${session.id.slice(0, 8)}`,
+    "Daimon advises; nothing mutating runs without your yes. /help for commands",
+  ];
+  if (opened.resumedLine) bannerLines.push(opened.resumedLine);
+  if (created) bannerLines.push(`wrote default config to ${configPath}`);
+
+  await runTui({
+    handle,
+    approvals: bridge,
+    banner: { headline: "⟠ demi — Semideus Code", lines: bannerLines },
+    model: spec.modelName,
+    sessionId: session.id,
+  });
+  // A turn (or approval) may still be pending under the unmounted UI — leave nothing dangling.
+  process.exit(0);
+}
+
+function openSession(
+  store: SessionStore,
+  resumeId: string | undefined,
+  deps: Omit<SessionInit, "store" | "cwd">,
+): { session: Session; resumedLine?: string } | null {
   if (resumeId) {
     const id = resumeId === "latest" ? store.latestSessionId() : resolveSessionId(store, resumeId);
     if (!id) {
@@ -139,36 +211,15 @@ async function startChat(flags: ChatFlags, resumeId?: string): Promise<void> {
         ),
       );
       process.exitCode = 1;
-      rl?.close();
-      return;
+      return null;
     }
-    session = Session.resume(store, id, deps);
-    console.log(
-      c.dim(`resumed ${id.slice(0, 8)} — ${session.title()} (${session.messages.length} messages)`),
-    );
-  } else {
-    session = new Session({ ...deps, cwd: process.cwd(), store });
+    const session = Session.resume(store, id, deps);
+    return {
+      session,
+      resumedLine: `resumed ${id.slice(0, 8)} — ${session.title()} (${session.messages.length} messages)`,
+    };
   }
-
-  if (flags.prompt) {
-    try {
-      await runTurn(session, flags.prompt);
-    } catch (err) {
-      console.error(c.red(`turn failed: ${err instanceof Error ? err.message : String(err)}`));
-      process.exitCode = 1;
-    }
-    rl?.close();
-    return;
-  }
-
-  if (!interactive || !rl) {
-    console.error(c.red('no prompt given and stdin is not a terminal — use -p "task"'));
-    process.exitCode = 1;
-    rl?.close();
-    return;
-  }
-
-  await repl(session, rl);
+  return { session: new Session({ ...deps, cwd: process.cwd(), store }) };
 }
 
 function resolveSessionId(store: SessionStore, prefix: string): string | null {
@@ -176,10 +227,18 @@ function resolveSessionId(store: SessionStore, prefix: string): string | null {
   return match?.id ?? null;
 }
 
+/** Readline approvals for headless -p runs from a terminal; the diff still renders first. */
 function approvalPrompter(rl: Interface) {
   return async (req: ApprovalRequest): Promise<ApprovalDecision> => {
     console.log(c.magenta(`\n  ⟠ approve ${req.toolName} [${req.permission}]`));
     console.log(`    ${req.summary}`);
+    if (req.preview?.diff) {
+      printDiff(req.preview.diff);
+    } else if (req.preview?.command) {
+      for (const [i, line] of req.preview.command.split("\n").entries()) {
+        console.log(`    ${i === 0 ? "$ " : "  "}${line}`);
+      }
+    }
     const answer = (await rl.question(c.magenta("    [y]es / [a]lways this session / [N]o › ")))
       .trim()
       .toLowerCase();
@@ -187,140 +246,6 @@ function approvalPrompter(rl: Interface) {
     if (answer === "y" || answer === "yes") return "allow";
     return "deny";
   };
-}
-
-async function repl(session: Session, rl: Interface): Promise<void> {
-  console.log(c.magenta("⟠ demi — Semideus Code"));
-  console.log(
-    c.dim(
-      `  model ${session.model.id} → ${session.model.modelName} · session ${session.id.slice(0, 8)}`,
-    ),
-  );
-  console.log(
-    c.dim("  Daimon advises; nothing mutating runs without your yes. /help for commands"),
-  );
-
-  let whyDisclaimerShown = false;
-
-  for (;;) {
-    let line: string;
-    try {
-      line = (await rl.question(c.cyan("\nyou › "))).trim();
-    } catch {
-      break; // stdin closed (ctrl-d / ctrl-c)
-    }
-    if (!line) continue;
-
-    if (line.startsWith("/")) {
-      const [cmd, ...rest] = line.slice(1).split(/\s+/);
-      switch (cmd) {
-        case "exit":
-        case "quit":
-          rl.close();
-          return;
-        case "help":
-          console.log(HELP);
-          break;
-        case "why": {
-          if (!whyDisclaimerShown) {
-            console.log(
-              c.dim(
-                "  rationales are the model's stated account, anchored to the artifacts shown — not guaranteed introspection",
-              ),
-            );
-            whyDisclaimerShown = true;
-          }
-          printWhy(session, rest[0]);
-          break;
-        }
-        case "cost":
-          console.log(`  session: ${formatUsage(session.usage)} (${session.model.modelName})`);
-          break;
-        case "undo": {
-          const restored = await session.undoLast();
-          console.log(
-            restored.length === 0
-              ? "  nothing to undo"
-              : `  restored:\n${restored.map((p) => `    ${p}`).join("\n")}`,
-          );
-          break;
-        }
-        case "mode": {
-          const mode = rest[0];
-          if (mode === "default" || mode === "explain") {
-            session.config.mode = mode;
-            console.log(c.dim(`  mode → ${mode}`));
-          } else {
-            console.log(`  current mode: ${session.config.mode} (usage: /mode default|explain)`);
-          }
-          break;
-        }
-        case "session":
-          console.log(`  ${session.id} — ${session.title()}`);
-          break;
-        case "permissions":
-          printPermissions(session, rest[0]);
-          break;
-        default:
-          console.log(c.dim(`  unknown command /${cmd} — /help`));
-      }
-      continue;
-    }
-
-    try {
-      await runTurn(session, line);
-    } catch (err) {
-      console.error(c.red(`turn failed: ${err instanceof Error ? err.message : String(err)}`));
-    }
-  }
-}
-
-function printPermissions(session: Session, arg?: string): void {
-  if (arg === "reset") {
-    const revoked = session.gate.resetSessionGrants();
-    console.log(
-      revoked.length === 0
-        ? "  no session grants to revoke"
-        : `  revoked session grants: ${revoked.join(", ")} — those actions will ask again`,
-    );
-    return;
-  }
-  if (arg) {
-    console.log(`  unknown argument "${arg}" (usage: /permissions [reset])`);
-    return;
-  }
-  const effective = session.gate.effective();
-  const granted = new Set(session.gate.sessionGranted());
-  for (const [cls, rule] of Object.entries(effective)) {
-    const marker = granted.has(cls as keyof typeof effective) ? c.magenta(" (session grant)") : "";
-    console.log(`  ${cls.padEnd(8)} ${rule}${marker}`);
-  }
-  if (granted.size > 0) console.log(c.dim("  /permissions reset revokes session grants"));
-}
-
-function printWhy(session: Session, stepArg?: string): void {
-  const decisions = session.decisions();
-  if (decisions.length === 0) {
-    console.log("  no decisions yet this session");
-    return;
-  }
-  if (stepArg) {
-    const step = Number(stepArg);
-    const d = decisions.find((x) => x.step === step);
-    if (!d) {
-      console.log(`  no step ${stepArg}`);
-      return;
-    }
-    console.log(`  ${d.step}. [${d.kind}] ${d.summary}`);
-    if (d.rationale) console.log(`     why: ${d.rationale}`);
-    if (d.refs.length > 0) console.log(`     refs: ${d.refs.join(" · ")}`);
-    return;
-  }
-  for (const d of decisions) {
-    const rationale = d.rationale ? c.dim(` — ${d.rationale}`) : "";
-    const refs = d.refs.length > 0 ? c.dim(`  [${d.refs.join(", ")}]`) : "";
-    console.log(`  ${String(d.step).padStart(3)}. [${d.kind}] ${d.summary}${rationale}${refs}`);
-  }
 }
 
 main().catch((err) => {
