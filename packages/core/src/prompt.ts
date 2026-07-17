@@ -42,6 +42,14 @@ describing it. When you teach, anchor every claim to code that is actually on sc
   const overlay = MODE_OVERLAYS[s.config.mode];
   if (overlay) parts.push(overlay);
 
+  if (s.repoMap.trim()) {
+    parts.push(`## Repo map
+Top-ranked files by cross-reference, signature lines only. A hint for navigation —
+read the file before relying on it, and prefer these paths when grepping blind.
+
+${s.repoMap.trim()}`);
+  }
+
   if (s.projectMemory.trim()) {
     parts.push(`## Project notes (AGENTS.md)\n${s.projectMemory.trim()}`);
   }

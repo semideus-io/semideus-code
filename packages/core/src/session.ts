@@ -55,6 +55,8 @@ export interface SessionInit {
   config?: Partial<SessionConfig>;
   /** Contents of the repo's AGENTS.md, injected into the system prompt. */
   projectMemory?: string;
+  /** Rendered repo map (built by cli via @semideus/repomap; core only carries the string). */
+  repoMap?: string;
 }
 
 export class Session {
@@ -67,6 +69,7 @@ export class Session {
   readonly createdAt: number;
   readonly config: SessionConfig;
   projectMemory: string;
+  repoMap: string;
 
   messages: ModelMessage[] = [];
   usage: UsageTotals = emptyUsage();
@@ -91,6 +94,7 @@ export class Session {
     this.onEvent = init.onEvent;
     this.config = { ...DEFAULT_CONFIG, ...init.config };
     this.projectMemory = init.projectMemory ?? "";
+    this.repoMap = init.repoMap ?? "";
     this.createdAt = resume?.data?.createdAt ?? Date.now();
     if (resume?.data) {
       this.messages = resume.data.messages;

@@ -12,6 +12,7 @@
     "@semideus/core": "workspace:*",
     "@semideus/learning": "workspace:*",
     "@semideus/providers": "workspace:*",
+    "@semideus/repomap": "workspace:*",
     "@semideus/tools": "workspace:*",
     "@semideus/tui": "workspace:*",
     "smol-toml": "^1.7.0"

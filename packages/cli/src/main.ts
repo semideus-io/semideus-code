@@ -16,6 +16,7 @@ import {
   ToolRegistry,
 } from "@semideus/core";
 import { buildModelSpec, ConfigError, mergedModels } from "@semideus/providers";
+import { buildRepoMap } from "@semideus/repomap";
 import { builtinTools } from "@semideus/tools";
 import { ApprovalBridge, replayItems, runTui, type TuiHandle } from "@semideus/tui";
 import { c } from "./colors";
@@ -131,6 +132,7 @@ async function startChat(flags: ChatFlags, resumeId?: string): Promise<void> {
 
   const agentsPath = join(process.cwd(), "AGENTS.md");
   const projectMemory = existsSync(agentsPath) ? readFileSync(agentsPath, "utf8") : "";
+  const repoMap = await safeRepoMap(process.cwd());
   const sessionConfig = { maxSteps: config.limits.max_steps };
 
   if (flags.prompt) {
@@ -146,6 +148,7 @@ async function startChat(flags: ChatFlags, resumeId?: string): Promise<void> {
       onEvent: printEvent,
       config: sessionConfig,
       projectMemory,
+      repoMap,
     });
     if (!opened) {
       rl?.close();
@@ -182,6 +185,7 @@ async function startChat(flags: ChatFlags, resumeId?: string): Promise<void> {
     },
     config: sessionConfig,
     projectMemory,
+    repoMap,
   });
   if (!opened) return;
   const { session } = opened;
@@ -244,6 +248,17 @@ function openSession(
 function resolveSessionId(store: SessionStore, prefix: string): string | null {
   const match = store.listSessions(100).find((s) => s.id.startsWith(prefix));
   return match?.id ?? null;
+}
+
+/** The map is a bonus, never a blocker: any failure means no map this session. */
+async function safeRepoMap(cwd: string): Promise<string> {
+  try {
+    const { map } = await buildRepoMap(cwd);
+    return map;
+  } catch (err) {
+    console.error(c.dim(`repo map skipped: ${err instanceof Error ? err.message : String(err)}`));
+    return "";
+  }
 }
 
 /** Readline approvals for headless -p runs from a terminal; the diff still renders first. */
