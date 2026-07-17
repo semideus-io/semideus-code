@@ -129,6 +129,14 @@ describe("runTurn", () => {
     expect(events.some((e) => e.type === "tool-end" && e.ok)).toBe(true);
     expect(events.at(-1)?.type).toBe("turn-end");
 
+    // narration alongside tool calls is non-final; the conclusion is final
+    const texts = events.flatMap((e) => (e.type === "assistant-text" ? [e] : []));
+    expect(texts.map((e) => e.final)).toEqual([false, true]);
+
+    // renderers get the permission class with every tool event
+    const starts = events.flatMap((e) => (e.type === "tool-start" ? [e] : []));
+    expect(starts[0]?.permission).toBe("read");
+
     // two model calls × (10 in + 5 out) at $1/$2 per MTok
     expect(session.usage.inputTokens).toBe(20);
     expect(session.usage.outputTokens).toBe(10);

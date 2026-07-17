@@ -3,13 +3,15 @@ import { firstLine } from "@semideus/core";
 import { c } from "./colors";
 
 const MAX_DIFF_LINES = 80;
+const MAX_OUTPUT_TAIL_LINES = 10;
 
 export function printEvent(event: AgentEvent): void {
   switch (event.type) {
     case "turn-start":
       break;
     case "assistant-text":
-      console.log(`\n${event.text}`);
+      // Step narration is dimmed; only the concluding answer prints plain.
+      console.log(event.final ? `\n${event.text}` : c.dim(`\n${event.text}`));
       break;
     case "tool-start":
       console.log(c.dim(`  → ${event.summary}`));
@@ -17,6 +19,9 @@ export function printEvent(event: AgentEvent): void {
     case "tool-end":
       if (event.ok) {
         if (event.artifacts?.diff) printDiff(event.artifacts.diff);
+        // Execute output is the artifact claims get anchored to — show its tail
+        // instead of asking the user to take "tests pass" on faith.
+        else if (event.permission === "execute") printOutputTail(event.output);
       } else {
         console.log(c.yellow(`  ✗ ${event.tool}: ${firstLine(event.output)}`));
       }
@@ -42,6 +47,17 @@ export function formatUsage(u: UsageTotals): string {
       ? ` (${Math.round((100 * u.cacheReadTokens) / u.inputTokens)}% cached)`
       : "";
   return `${u.inputTokens.toLocaleString()} in${cached} → ${u.outputTokens.toLocaleString()} out tok · ~$${u.costUsd.toFixed(4)}`;
+}
+
+function printOutputTail(output: string): void {
+  const trimmed = output.trimEnd();
+  if (!trimmed) return;
+  const lines = trimmed.split("\n");
+  const tail = lines.slice(-MAX_OUTPUT_TAIL_LINES);
+  if (lines.length > tail.length) {
+    console.log(c.dim(`  …[${lines.length - tail.length} more output lines]`));
+  }
+  for (const line of tail) console.log(c.dim(`  ${line}`));
 }
 
 function printDiff(diff: string): void {

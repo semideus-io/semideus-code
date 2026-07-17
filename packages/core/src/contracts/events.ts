@@ -1,4 +1,4 @@
-import type { ToolArtifacts } from "./tool";
+import type { PermissionClass, ToolArtifacts } from "./tool";
 
 export type DecisionKind = "plan" | "tool_call" | "edit" | "conclusion";
 
@@ -42,14 +42,26 @@ export interface UsageTotals {
  */
 export type AgentEvent =
   | { type: "turn-start"; sessionId: string }
-  | { type: "assistant-text"; text: string }
-  | { type: "tool-start"; step: number; tool: string; summary: string }
+  | {
+      type: "assistant-text";
+      text: string;
+      /** True for the concluding answer; false for narration between tool calls. */
+      final: boolean;
+    }
+  | {
+      type: "tool-start";
+      step: number;
+      tool: string;
+      summary: string;
+      permission: PermissionClass;
+    }
   | {
       type: "tool-end";
       step: number;
       tool: string;
       ok: boolean;
       output: string;
+      permission: PermissionClass;
       artifacts?: ToolArtifacts;
     }
   | { type: "tool-denied"; step: number; tool: string; reason: string }

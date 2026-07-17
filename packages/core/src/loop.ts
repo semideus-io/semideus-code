@@ -49,7 +49,7 @@ export async function runTurn(s: Session, userMessage: string): Promise<void> {
     s.messages.push(...res.response.messages);
 
     const text = res.text.trim();
-    if (text) s.emit({ type: "assistant-text", text });
+    if (text) s.emit({ type: "assistant-text", text, final: res.toolCalls.length === 0 });
 
     if (res.toolCalls.length === 0) {
       s.logDecision({
@@ -124,7 +124,7 @@ async function executeCall(
   }
 
   const summary = tool.summarize(parsed.data);
-  s.emit({ type: "tool-start", step, tool: tool.name, summary });
+  s.emit({ type: "tool-start", step, tool: tool.name, summary, permission: tool.permission });
 
   const verdict = await s.gate.check(tool, parsed.data, summary);
   let denied = false;
@@ -146,6 +146,7 @@ async function executeCall(
       tool: tool.name,
       ok: result.ok,
       output: result.output,
+      permission: tool.permission,
       artifacts: result.artifacts,
     });
   }
