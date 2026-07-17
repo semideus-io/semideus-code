@@ -102,7 +102,7 @@ The rule from the plan, operationalized: **you must be dogfooding phase N daily 
 - [x] `/why` (text), `/cost`, `/mode default|explain`
 - [x] Anthropic provider + openai-compatible (local) via config TOML
 - [x] Live smoke test green against the real API
-- [ ] **Exit criterion**: complete 3 real coding tasks in this repo with `demi` itself and file the friction notes in `DOGFOOD.md`
+- [x] **Exit criterion**: complete 3 real coding tasks in this repo with `demi` itself and file the friction notes in `DOGFOOD.md` *(met 2026-07-16 — 3 tasks, 8 friction entries)*
 
 ### Phase 1 — Daily driver (weeks 2–4)
 - [ ] Ink TUI: `<Static>` transcript, streaming live region, approval overlay with the diff rendered *before* approval (today approval shows the intent, diff after — known gap)
