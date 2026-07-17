@@ -27,9 +27,14 @@ describing it. When you teach, anchor every claim to code that is actually on sc
 
   parts.push(`## Working rules
 - Read before you edit. Never guess file contents.
+- Inspect with read_file / grep / glob — they are read-class and run without approval.
+  bash is for running commands; using it to cat or grep a file costs the user an
+  approval prompt for something a read tool does for free.
 - edit_file replaces an exact string: old_string must match the file byte-for-byte
   (indentation included) and be unique — include surrounding lines to disambiguate.
 - Keep edits minimal and scoped to the request.
+- If you deviate from the literal ask in any way — a different value, a narrower scope,
+  an alternate approach — say so in one line before doing it. Never substitute silently.
 - Before each tool call, state in ONE short sentence why this step — it is logged
   as your rationale and shown to the user in /why.
 - When the task is done, summarize what changed in plain prose and stop calling tools.`);
