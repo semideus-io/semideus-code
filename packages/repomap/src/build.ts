@@ -4,7 +4,7 @@ import { extract, type FileExtract } from "./extract";
 import { rankFiles } from "./rank";
 import { renderMap } from "./render";
 
-const CACHE_VERSION = 1;
+const CACHE_VERSION = 2;
 const SKIP_SEGMENTS = new Set(["node_modules", "dist", "coverage", ".demi"]);
 /** Minified bundles and generated monsters don't belong on the map. */
 const MAX_FILE_BYTES = 400_000;
@@ -12,6 +12,8 @@ const SOURCE_GLOB = "**/*.{ts,tsx,js,jsx,mts,cts,mjs,cjs}";
 
 interface CacheEntry {
   mtimeMs: number;
+  /** mtime has ms resolution — size catches same-millisecond rewrites (agents edit that fast). */
+  size: number;
   extract: FileExtract;
 }
 
@@ -89,16 +91,17 @@ export async function buildRepoMap(cwd: string, opts: BuildOptions = {}): Promis
   for (const rel of paths) {
     const file = Bun.file(join(cwd, rel));
     const mtimeMs = file.lastModified;
+    const size = file.size;
     const cached = cache[rel];
-    if (cached && cached.mtimeMs === mtimeMs) {
+    if (cached && cached.mtimeMs === mtimeMs && cached.size === size) {
       fresh[rel] = cached;
       extracts[rel] = cached.extract;
       continue;
     }
-    if (file.size > MAX_FILE_BYTES) continue;
+    if (size > MAX_FILE_BYTES) continue;
     const extracted = await extract(rel, await file.text());
     parsed++;
-    fresh[rel] = { mtimeMs, extract: extracted };
+    fresh[rel] = { mtimeMs, size, extract: extracted };
     extracts[rel] = extracted;
   }
 
