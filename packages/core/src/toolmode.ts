@@ -34,12 +34,14 @@ const JSON_SHAPE = `To call a tool, end your message with exactly one fenced blo
 {"tool": "<tool name>", "input": { ... }}
 \`\`\``;
 
-const XML_SHAPE = `To call a tool, end your message with exactly one block:
+const XML_SHAPE = `To call a tool, end your message with exactly one block in THIS exact
+XML format — never a \`\`\`json fence, never a bare JSON object, never an invented result:
 <tool_call>
-<tool>tool name here</tool>
-<input>{ "arg": "value" }</input>
+<tool>read_file</tool>
+<input>{"path": "some/file.ts"}</input>
 </tool_call>
-The <input> body must be JSON matching the tool's input schema.`;
+The <tool> body is the tool's name; the <input> body is JSON matching the tool's
+input schema. You never write tool output yourself — it arrives in the next message.`;
 
 /** Appended to the system prompt when toolMode is not native. */
 export function toolProtocolPrompt(registry: ToolRegistry, mode: ToolMode): string {
@@ -67,10 +69,12 @@ function repairJson(raw: string): string {
 
 function parseJsonMode(text: string): FallbackParse {
   // Prefer the last fenced json block; fall back to a bare {"tool": …} object.
+  // Narration is everything around the block — models chatter after it too.
   const fences = [...text.matchAll(/```(?:json)?\s*\n?([\s\S]*?)```/gi)];
-  let raw = fences.at(-1)?.[1];
-  let narration = fences.length
-    ? text.replace(/```(?:json)?\s*\n?[\s\S]*?```\s*$/i, "").trim()
+  const lastFence = fences.at(-1);
+  let raw = lastFence?.[1];
+  let narration = lastFence
+    ? (text.slice(0, lastFence.index) + text.slice(lastFence.index + lastFence[0].length)).trim()
     : text;
   if (raw === undefined) {
     const start = text.lastIndexOf('{"tool"');
@@ -78,7 +82,7 @@ function parseJsonMode(text: string): FallbackParse {
     const end = text.lastIndexOf("}");
     if (end <= start) return { kind: "none" };
     raw = text.slice(start, end + 1);
-    narration = text.slice(0, start).trim();
+    narration = (text.slice(0, start) + text.slice(end + 1)).trim();
   }
   try {
     const value = JSON.parse(repairJson(raw)) as { tool?: unknown; input?: unknown };
@@ -101,9 +105,12 @@ function parseJsonMode(text: string): FallbackParse {
 
 function parseXmlMode(text: string): FallbackParse {
   const blocks = [...text.matchAll(/<tool_call>([\s\S]*?)<\/tool_call>/gi)];
-  const body = blocks.at(-1)?.[1];
-  if (body === undefined) return { kind: "none" };
-  const narration = text.slice(0, text.lastIndexOf("<tool_call>")).trim();
+  const lastBlock = blocks.at(-1);
+  const body = lastBlock?.[1];
+  if (lastBlock === undefined || body === undefined) return { kind: "none" };
+  const narration = (
+    text.slice(0, lastBlock.index) + text.slice(lastBlock.index + lastBlock[0].length)
+  ).trim();
 
   const tool = /<tool>\s*([\s\S]*?)\s*<\/tool>/i.exec(body)?.[1]?.trim();
   if (!tool) {
