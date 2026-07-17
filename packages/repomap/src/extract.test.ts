@@ -83,6 +83,19 @@ describe("extract", () => {
     expect(await extract("README.md", "# heading")).toEqual({ defs: [], idents: {} });
   });
 
+  test("consts inside an initializer body never leak out as top-level defs", async () => {
+    const source = `export const tool = {
+  run: async () => {
+    const inner = 1;
+    const alsoInner = 2;
+    return inner + alsoInner;
+  },
+};
+`;
+    const { defs } = await extract("tool.ts", source);
+    expect(defs.map((d) => d.name)).toEqual(["tool"]);
+  });
+
   test("tsx components extract from tsx files", async () => {
     const tsx = "export function App() {\n  return <div>hi</div>;\n}\n";
     const { defs } = await extract("app.tsx", tsx);

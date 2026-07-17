@@ -80,7 +80,10 @@ export async function extract(path: string, source: string): Promise<FileExtract
     if (!node || !isTopLevel(node)) continue;
     const exported = node.parent?.type === "export_statement";
     const sigNode = exported && node.parent ? node.parent : node;
-    for (const declarator of node.descendantsOfType("variable_declarator")) {
+    // Direct children only — descendantsOfType would surface consts nested
+    // inside the initializer (arrow bodies, object methods) as top-level defs.
+    const declarators = node.namedChildren.filter((c) => c?.type === "variable_declarator");
+    for (const declarator of declarators) {
       const name = declarator?.childForFieldName("name")?.text;
       if (!name) continue;
       defs.push({
