@@ -1,0 +1,14 @@
+{
+  "name": "@semideus/repomap",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@semideus/core": "workspace:*",
+    "tree-sitter-wasms": "^0.1.12",
+    "web-tree-sitter": "^0.25.6"
+  }
+}
