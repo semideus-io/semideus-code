@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import type { LanguageModelMiddleware } from "ai";
+import { createAnthropic } from "@ai-sdk/anthropic";
+import { generateText, type LanguageModelMiddleware, wrapLanguageModel } from "ai";
 import { anthropicPromptCache } from "./cache";
 
 type Transform = NonNullable<LanguageModelMiddleware["transformParams"]>;
@@ -79,5 +80,58 @@ describe("anthropicPromptCache", () => {
 
     expect(prompt[0]?.providerOptions).toBeUndefined();
     expect(prompt[1]?.providerOptions).toBeUndefined();
+  });
+
+  // Wire-format test: the anthropic provider must translate the middleware's
+  // providerOptions into cache_control blocks in the actual request body.
+  // Pins the integration so an @ai-sdk/anthropic bump can't silently kill caching.
+  test("cache_control reaches the anthropic request body", async () => {
+    let body: {
+      system?: Array<{ text: string; cache_control?: unknown }>;
+      messages?: Array<{ content: Array<{ type: string; cache_control?: unknown }> }>;
+    } = {};
+    const captureFetch: typeof fetch = Object.assign(
+      async (_url: unknown, init?: RequestInit) => {
+        body = JSON.parse(String(init?.body));
+        return new Response(
+          JSON.stringify({
+            id: "msg_test",
+            type: "message",
+            role: "assistant",
+            content: [{ type: "text", text: "ok" }],
+            model: "claude-haiku-4-5-20251001",
+            stop_reason: "end_turn",
+            stop_sequence: null,
+            usage: { input_tokens: 10, output_tokens: 5 },
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      },
+      { preconnect: fetch.preconnect },
+    );
+    const anthropic = createAnthropic({
+      apiKey: "test-key-never-sent-anywhere",
+      fetch: captureFetch,
+    });
+
+    const model = wrapLanguageModel({
+      model: anthropic("claude-haiku-4-5-20251001"),
+      middleware: anthropicPromptCache(),
+    });
+
+    await generateText({
+      model,
+      system: "be helpful",
+      messages: [
+        { role: "user", content: "first ask" },
+        { role: "assistant", content: "first answer" },
+        { role: "user", content: "second ask" },
+      ],
+    });
+
+    const ephemeral = { type: "ephemeral" };
+    expect(body.system?.[0]?.cache_control).toEqual(ephemeral);
+    const messageBlocks = (body.messages ?? []).map((m) => m.content.at(-1)?.cache_control);
+    expect(messageBlocks).toEqual([undefined, ephemeral, ephemeral]);
   });
 });

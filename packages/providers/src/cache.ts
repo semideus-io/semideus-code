@@ -14,6 +14,10 @@ type PromptMessage = CallOptions["prompt"][number];
  *
  * Three breakpoints total, within Anthropic's limit of four. Non-Anthropic
  * providers never see this middleware (see factory.ts).
+ *
+ * Prefixes below the model's minimum cacheable length (1k–4k tokens depending
+ * on model; Haiku 4.5 needs 4096) silently don't cache — tiny sessions showing
+ * zero cache reads is expected, not a bug.
  */
 export function anthropicPromptCache(): LanguageModelMiddleware {
   return {
