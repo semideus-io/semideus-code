@@ -36,6 +36,8 @@ export interface AppProps {
   banner: { headline: string; lines: string[] };
   model: string;
   sessionId: string;
+  /** A resumed session's replayed history, rendered ahead of the live transcript. */
+  initialItems?: TranscriptItem[];
 }
 
 type KeyedItem = TranscriptItem & { id: number };
@@ -49,10 +51,13 @@ function Spinner() {
   return <Text color="magenta">{SPINNER_FRAMES[frame] ?? "⠋"}</Text>;
 }
 
-export function App({ handle, approvals, banner, model, sessionId }: AppProps) {
+export function App({ handle, approvals, banner, model, sessionId, initialItems }: AppProps) {
   const { exit } = useApp();
   const nextId = useRef(1);
-  const [items, setItems] = useState<KeyedItem[]>([{ kind: "banner", ...banner, id: 0 }]);
+  const [items, setItems] = useState<KeyedItem[]>(() => {
+    const seed: TranscriptItem[] = [{ kind: "banner", ...banner }, ...(initialItems ?? [])];
+    return seed.map((item) => ({ ...item, id: nextId.current++ }));
+  });
   const [live, setLive] = useState("");
   const liveRef = useRef("");
   const [running, setRunning] = useState(false);

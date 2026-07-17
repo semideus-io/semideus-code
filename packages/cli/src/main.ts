@@ -17,11 +17,12 @@ import {
 } from "@semideus/core";
 import { buildModelSpec, ConfigError, mergedModels } from "@semideus/providers";
 import { builtinTools } from "@semideus/tools";
-import { ApprovalBridge, runTui, type TuiHandle } from "@semideus/tui";
+import { ApprovalBridge, replayItems, runTui, type TuiHandle } from "@semideus/tui";
 import { c } from "./colors";
 import { type CommandState, runCommand } from "./commands";
 import { loadConfig } from "./config";
 import { printDiff, printEvent } from "./print";
+import { formatSessionLine, pickSessionId } from "./session-picker";
 
 const VERSION = "0.0.1";
 
@@ -32,10 +33,12 @@ usage:
   demi -p "task"             one-shot headless run
   demi sessions              list stored sessions
   demi resume [id]           resume a session (latest if no id)
+  demi resume --pick         choose the session from a list
 
 flags:
   -p, --prompt <text>        run one turn and exit
   -m, --model <id>           model from config (default: "default")
+      --pick                 pick the session to resume interactively
       --yes                  auto-approve all actions (policy setting, gate still runs)
   -h, --help                 this help
   -v, --version              version
@@ -56,6 +59,7 @@ async function main(): Promise<void> {
     options: {
       prompt: { type: "string", short: "p" },
       model: { type: "string", short: "m", default: "default" },
+      pick: { type: "boolean", default: false },
       yes: { type: "boolean", default: false },
       help: { type: "boolean", short: "h", default: false },
       version: { type: "boolean", short: "v", default: false },
@@ -73,7 +77,8 @@ async function main(): Promise<void> {
 
   const command = positionals[0] ?? "chat";
   if (command === "sessions") return listSessions();
-  if (command === "resume") return startChat(values, positionals[1] ?? "latest");
+  if (command === "resume")
+    return startChat(values, positionals[1] ?? (values.pick ? "pick" : "latest"));
   if (command === "chat") return startChat(values);
   console.error(c.red(`unknown command: ${command}`));
   console.log(HELP);
@@ -88,8 +93,7 @@ function listSessions(): void {
     return;
   }
   for (const s of sessions) {
-    const when = new Date(s.updatedAt).toISOString().slice(0, 16).replace("T", " ");
-    console.log(`${s.id.slice(0, 8)}  ${when}  [${s.model}]  ${s.title}`);
+    console.log(formatSessionLine(s));
   }
 }
 
@@ -104,6 +108,19 @@ async function startChat(flags: ChatFlags, resumeId?: string): Promise<void> {
 
   const spec = buildModelSpec(flags.model ?? "default", mergedModels(config));
   const store = new SessionStore();
+
+  // "pick" is main()'s sentinel for `resume --pick`; ids are uuids, no collision.
+  let resolvedResume = resumeId;
+  if (resolvedResume === "pick") {
+    if (process.stdin.isTTY !== true) {
+      console.error(c.red("--pick needs a terminal"));
+      process.exitCode = 1;
+      return;
+    }
+    const picked = await pickSessionId(store);
+    if (!picked) return;
+    resolvedResume = picked;
+  }
 
   const registry = new ToolRegistry();
   for (const tool of builtinTools) registry.register(tool);
@@ -122,7 +139,7 @@ async function startChat(flags: ChatFlags, resumeId?: string): Promise<void> {
       ? createInterface({ input: process.stdin, output: process.stdout })
       : null;
     const gate = new PermissionGate(policy, rl ? approvalPrompter(rl) : undefined);
-    const opened = openSession(store, resumeId, {
+    const opened = openSession(store, resolvedResume, {
       model: spec,
       registry,
       gate,
@@ -156,7 +173,7 @@ async function startChat(flags: ChatFlags, resumeId?: string): Promise<void> {
   const bridge = new ApprovalBridge();
   const gate = new PermissionGate(policy, bridge.prompter);
   const sinks = new Set<(event: AgentEvent) => void>();
-  const opened = openSession(store, resumeId, {
+  const opened = openSession(store, resolvedResume, {
     model: spec,
     registry,
     gate,
@@ -192,6 +209,8 @@ async function startChat(flags: ChatFlags, resumeId?: string): Promise<void> {
     banner: { headline: "⟠ demi — Semideus Code", lines: bannerLines },
     model: spec.modelName,
     sessionId: session.id,
+    // Resumed history rendered ahead of the live transcript; [] for fresh sessions.
+    initialItems: replayItems(session.replay()),
   });
   // A turn (or approval) may still be pending under the unmounted UI — leave nothing dangling.
   process.exit(0);

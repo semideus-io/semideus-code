@@ -7,6 +7,7 @@ export type {
 } from "./contracts/events";
 export type { Concept } from "./contracts/learning";
 export type { ModelSpec, ToolMode } from "./contracts/provider";
+export type { ReplayItem } from "./contracts/replay";
 export type {
   PermissionClass,
   Tool,

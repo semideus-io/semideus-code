@@ -2,6 +2,7 @@ import type {
   AgentEvent,
   ApprovalDecision,
   PermissionClass,
+  ReplayItem,
   ToolArtifacts,
   UsageTotals,
 } from "@semideus/core";
@@ -68,5 +69,51 @@ export function transcriptItem(event: AgentEvent): TranscriptItem | null {
       return { kind: "error", text: event.message };
     case "turn-end":
       return { kind: "cost", turn: event.turn, session: event.session };
+  }
+}
+
+/**
+ * Map a resumed session's replayed history to the same transcript shapes live
+ * events produce — /resume shows the actual conversation, not a title line.
+ * Tool items expand to the same start/end pair the live loop emits: the start
+ * line carries the summary (for read-class tools it is the only visible line),
+ * the end line carries outcome and output.
+ */
+export function replayItems(items: ReplayItem[]): TranscriptItem[] {
+  return items.flatMap(replayed);
+}
+
+function replayed(item: ReplayItem): TranscriptItem[] {
+  switch (item.kind) {
+    case "user":
+      return [{ kind: "user", text: item.text }];
+    case "assistant":
+      return [{ kind: "assistant", text: item.text, final: item.final }];
+    case "tool":
+      return [
+        {
+          kind: "tool-start",
+          tool: item.tool,
+          summary: item.summary,
+          permission: item.permission,
+        },
+        {
+          kind: "tool-end",
+          tool: item.tool,
+          ok: item.ok,
+          output: item.output,
+          permission: item.permission,
+        },
+      ];
+    case "tool-denied":
+      return [
+        {
+          kind: "tool-start",
+          tool: item.tool,
+          summary: item.summary,
+          permission: item.permission,
+        },
+        { kind: "denied", tool: item.tool, reason: item.reason },
+      ];
   }
 }

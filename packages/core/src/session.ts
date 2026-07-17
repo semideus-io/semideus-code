@@ -2,9 +2,11 @@ import { unlinkSync } from "node:fs";
 import type { ModelMessage } from "ai";
 import type { AgentEvent, DecisionEvent, EventSink, UsageTotals } from "./contracts/events";
 import type { ModelSpec } from "./contracts/provider";
+import type { ReplayItem } from "./contracts/replay";
 import type { ToolContext } from "./contracts/tool";
 import type { PermissionGate } from "./permissions";
 import type { ToolRegistry } from "./registry";
+import { buildReplay } from "./replay";
 import type { SessionStore } from "./store";
 
 export type SessionMode = "default" | "explain";
@@ -121,6 +123,11 @@ export class Session {
 
   decisions(): DecisionEvent[] {
     return this.decisionsCache;
+  }
+
+  /** What a resumed session's transcript would have shown, from stored messages. */
+  replay(): ReplayItem[] {
+    return buildReplay(this.messages, this.registry);
   }
 
   beginTurn(): void {
