@@ -13,7 +13,7 @@ Format: `date · task · what ground · one-line fix idea`
 
 - 2026-07-16 · **task 2/3** — demi documents its own CLI surface in README (interactive REPL) · fat-fingered "a" at the write prompt — allow-session is invisible and irrevocable mid-session: no way to see or reset the live policy short of restarting · add `/permissions` to show + reset effective policy; consider a confirm step on "always" → **fixed 2026-07-17** (`/permissions` + `reset`; confirm step deferred — visibility + revocation felt sufficient)
 
-- 2026-07-16 · **task 3/3** — boundary test for `truncateMiddle` in `/mode explain` (session `f1c5b74c`, resumed) · approved `edit_file` seeing only the intent line — the diff rendered *after* execution (honesty-ledger gap, now *felt*, not just listed) · confirms phase-1 priority: diff before approval in the TUI overlay
+- 2026-07-16 · **task 3/3** — boundary test for `truncateMiddle` in `/mode explain` (session `f1c5b74c`, resumed) · approved `edit_file` seeing only the intent line — the diff rendered *after* execution (honesty-ledger gap, now *felt*, not just listed) · confirms phase-1 priority: diff before approval in the TUI overlay → **fixed 2026-07-17** (tools compute a read-only preview pre-approval; the TUI overlay and the headless prompter both render the diff/full command before y/a/N — ADR-0004)
 - 2026-07-16 · (same run) · bash output is never printed on success — had to take "all 7 tests pass" on faith, against the product's own anchor-claims-to-artifacts principle · print.ts: show tool-end output (tail ~10 lines) for execute-class tools → **fixed 2026-07-17**
 - 2026-07-16 · (same run) · asked for the 48k cap, demi tested the boundary at `max=40` — same code path (the function is parameterized), defensible, but the substitution was silent, in explain mode of all places · prompt rule: narrate any deviation from the literal ask in one line → **fixed 2026-07-17** (working rule in prompt.ts)
 - 2026-07-16 · (same run) · turn-end prints the session-cumulative total with no label — "$0.33" read as the cost of a 5-line test, but it was tasks 2+3 combined, with the resumed README history re-sent on every step · label it `turn X · session Y`; caching entry above is the real fix → **fixed 2026-07-17** (turn-end reports both; caching landed too)
@@ -23,3 +23,5 @@ Format: `date · task · what ground · one-line fix idea`
 **Phase 0 exit criterion met 2026-07-16** — three real tasks, eight friction lines. This list *is* the phase-1 backlog ordering.
 
 **2026-07-17** — seven of eight entries fixed (commits `cb60653…9533589`). The one left open — diff rendered before approval — is the phase-1 TUI overlay itself.
+
+**2026-07-17 (later)** — the eighth entry closed with the TUI build: streaming loop, pre-approval previews, Ink app (Static transcript · live region · approval overlay), TUI as the interactive surface. The phase-0 friction list is fully burned down; the next list starts from daily-driving the TUI.

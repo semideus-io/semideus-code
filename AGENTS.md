@@ -33,4 +33,4 @@ Terminal coding agent. Bun + TypeScript monorepo. Persona: **Daimon** — advise
 
 `docs/PLAN.md` — full product plan · `DEVELOPMENT.md` — way of working, phase gates · `docs/adr/` — decisions.
 
-Current phase: **0 → 1** (headless loop shipped; TUI next). See DEVELOPMENT.md § Phase gates.
+Current phase: **1** (streaming + pre-approval diffs + Ink TUI shipped; repo map, tool-mode fallbacks, session picker remain). See DEVELOPMENT.md § Phase gates.

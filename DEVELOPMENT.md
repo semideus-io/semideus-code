@@ -26,7 +26,7 @@ export ANTHROPIC_API_KEY=sk-ant-…
 
 | Command | What it does |
 |---|---|
-| `bun demi` | REPL from source |
+| `bun demi` | interactive TUI from source |
 | `bun demi -p "…"` | one-shot headless turn |
 | `bun demi sessions` / `resume [id]` | list / resume stored sessions |
 | `bun test` | all tests (colocated `*.test.ts`, bun:test) |
@@ -55,8 +55,8 @@ Where things go:
 | a tool | `tools/src/<name>.ts` + registration in `tools/src/index.ts` |
 | a provider or config field | `providers/src/` (schema in `config.ts`, construction in `factory.ts`) |
 | anything learning (ledger, digest, recall, Semideus bridge) | `learning/src/` |
-| terminal rendering | `tui/src/` (phase 1+) — REPL printing stays in `cli/src/print.ts` until then |
-| a slash command | `cli/src/main.ts` (REPL switch) — and later its TUI equivalent |
+| terminal rendering | `tui/src/` — headless printing stays in `cli/src/print.ts` |
+| a slash command | `cli/src/commands.ts` — one implementation, every renderer |
 
 ## 4. Checklists
 
@@ -106,7 +106,7 @@ The rule from the plan, operationalized: **you must be dogfooding phase N daily 
 - [x] **Exit criterion**: complete 3 real coding tasks in this repo with `demi` itself and file the friction notes in `DOGFOOD.md` *(met 2026-07-16 — 3 tasks, 8 friction entries)*
 
 ### Phase 1 — Daily driver (weeks 2–4)
-- [ ] Ink TUI: `<Static>` transcript, streaming live region, approval overlay with the diff rendered *before* approval (today approval shows the intent, diff after — known gap)
+- [x] Ink TUI: `<Static>` transcript, streaming live region, approval overlay with the diff rendered *before* approval *(landed 2026-07-17 — ADR-0004; PTY-verified live: streamed turn, diff-first approval, deny honored)*
 - [x] Streaming (`streamText`) in the loop, events unchanged *(landed 2026-07-17 — `assistant-delta` added for live regions; existing events untouched)*
 - [ ] Repo map: `web-tree-sitter` + personalized PageRank, ~1k-token budget, cached in `.demi/cache/` (dependency added when the feature lands — ADR-0003)
 - [ ] Tool-mode fallback tiers (`json-fallback`, `xml-repair`) proven against one local model
@@ -139,6 +139,9 @@ Anything that changes architecture, a dependency choice, or the product contract
 
 | Gap | Why deferred | Lands |
 |---|---|---|
+| No way to interrupt a running turn (esc) | needs AbortSignal plumbing through the loop; input is simply ignored while running | phase 1 |
+| TUI input is append-only — no cursor keys, no history | hand-rolled input stays minimal until dogfood says what's actually missed | when it hurts |
+| Resume shows a summary line, not the past transcript | replay needs message→item mapping; belongs with the session picker | phase 1 |
 | `json-fallback` / `xml-repair` accepted in config but not implemented | needs a local model on the bench to test against for real | phase 1 |
 | No repo map | biggest context feature, deserves its own focused build | phase 1 |
 | `bash` snapshots nothing | can't know what a command touches; shadow-git checkpoints are the real answer | phase 3 |
