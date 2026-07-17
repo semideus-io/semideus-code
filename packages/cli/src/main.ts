@@ -232,7 +232,7 @@ async function repl(session: Session, rl: Interface): Promise<void> {
           break;
         }
         case "cost":
-          console.log(`  ${formatUsage(session.usage)} (${session.model.modelName})`);
+          console.log(`  session: ${formatUsage(session.usage)} (${session.model.modelName})`);
           break;
         case "undo": {
           const restored = await session.undoLast();

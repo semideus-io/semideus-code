@@ -65,6 +65,8 @@ export class Session {
 
   messages: ModelMessage[] = [];
   usage: UsageTotals = emptyUsage();
+  /** Usage for the turn in flight — reset by the loop at every turn start. */
+  turnUsage: UsageTotals = emptyUsage();
 
   private readonly onEvent?: EventSink;
   private stepCounter = 0;
@@ -121,21 +123,28 @@ export class Session {
     return this.decisionsCache;
   }
 
+  beginTurn(): void {
+    this.turnUsage = emptyUsage();
+  }
+
   trackUsage(u: StepUsage): void {
     const input = u.inputTokens ?? 0;
     const output = u.outputTokens ?? 0;
     const cacheRead = u.inputTokenDetails?.cacheReadTokens ?? 0;
     const cacheWrite = u.inputTokenDetails?.cacheWriteTokens ?? 0;
     const uncached = Math.max(0, input - cacheRead - cacheWrite);
-    this.usage.inputTokens += input;
-    this.usage.outputTokens += output;
-    this.usage.cacheReadTokens += cacheRead;
-    this.usage.cacheWriteTokens += cacheWrite;
-    this.usage.costUsd +=
+    const costUsd =
       ((uncached + CACHE_WRITE_MULTIPLIER * cacheWrite + CACHE_READ_MULTIPLIER * cacheRead) *
         this.model.costPerMTok.in +
         output * this.model.costPerMTok.out) /
       1_000_000;
+    for (const totals of [this.usage, this.turnUsage]) {
+      totals.inputTokens += input;
+      totals.outputTokens += output;
+      totals.cacheReadTokens += cacheRead;
+      totals.cacheWriteTokens += cacheWrite;
+      totals.costUsd += costUsd;
+    }
   }
 
   /** Capture a file's pre-mutation state; grouped by step so /undo restores per-action. */

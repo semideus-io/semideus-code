@@ -36,7 +36,11 @@ export function printEvent(event: AgentEvent): void {
       console.log(c.red(`  ! ${event.message}`));
       break;
     case "turn-end":
-      console.log(c.dim(`  · ${formatUsage(event.usage)}`));
+      console.log(
+        c.dim(
+          `  · turn: ${formatUsage(event.turn)} · session: ~$${event.session.costUsd.toFixed(4)}`,
+        ),
+      );
       break;
   }
 }

@@ -176,6 +176,21 @@ describe("runTurn", () => {
     expect(session.usage.costUsd).toBeCloseTo((10 + 12.5 + 3) / 1e6 + (5 * 2) / 1e6, 12);
   });
 
+  test("turn usage resets per turn while session usage accumulates", async () => {
+    const events: AgentEvent[] = [];
+    const session = makeSession({ responses: toolCallThenDone, events });
+
+    await runTurn(session, "first");
+    await runTurn(session, "second");
+
+    const ends = events.flatMap((e) => (e.type === "turn-end" ? [e] : []));
+    expect(ends).toHaveLength(2);
+    // turn 1 = two model calls (tool call + conclusion), turn 2 = one (the mock
+    // keeps serving its last scripted response); 10 input tokens per call
+    expect(ends[1]?.turn.inputTokens).toBe(10);
+    expect(ends[1]?.session.inputTokens).toBe(30);
+  });
+
   test("session persists after the turn", async () => {
     const session = makeSession({ responses: toolCallThenDone });
     await runTurn(session, "please echo hi");

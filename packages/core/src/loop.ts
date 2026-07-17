@@ -27,6 +27,7 @@ interface CallOutcome {
  * place where intent becomes action.
  */
 export async function runTurn(s: Session, userMessage: string): Promise<void> {
+  s.beginTurn();
   s.emit({ type: "turn-start", sessionId: s.id });
   s.messages.push({ role: "user", content: userMessage });
 
@@ -96,7 +97,7 @@ export async function runTurn(s: Session, userMessage: string): Promise<void> {
     });
   }
   await s.persist();
-  s.emit({ type: "turn-end", usage: s.usage });
+  s.emit({ type: "turn-end", turn: s.turnUsage, session: s.usage });
 }
 
 async function executeCall(

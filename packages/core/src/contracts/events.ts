@@ -67,6 +67,6 @@ export type AgentEvent =
   | { type: "tool-denied"; step: number; tool: string; reason: string }
   | { type: "notice"; text: string }
   | { type: "error"; message: string }
-  | { type: "turn-end"; usage: UsageTotals };
+  | { type: "turn-end"; turn: UsageTotals; session: UsageTotals };
 
 export type EventSink = (event: AgentEvent) => void;
