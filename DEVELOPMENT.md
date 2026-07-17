@@ -106,7 +106,7 @@ The rule from the plan, operationalized: **you must be dogfooding phase N daily 
 
 ### Phase 1 — Daily driver (weeks 2–4)
 - [ ] Ink TUI: `<Static>` transcript, streaming live region, approval overlay with the diff rendered *before* approval (today approval shows the intent, diff after — known gap)
-- [ ] Streaming (`streamText`) in the loop, events unchanged
+- [x] Streaming (`streamText`) in the loop, events unchanged *(landed 2026-07-17 — `assistant-delta` added for live regions; existing events untouched)*
 - [ ] Repo map: `web-tree-sitter` + personalized PageRank, ~1k-token budget, cached in `.demi/cache/` (dependency added when the feature lands — ADR-0003)
 - [ ] Tool-mode fallback tiers (`json-fallback`, `xml-repair`) proven against one local model
 - [ ] Session picker for `resume`, context warnings at ~70% window
@@ -139,7 +139,6 @@ Anything that changes architecture, a dependency choice, or the product contract
 | Gap | Why deferred | Lands |
 |---|---|---|
 | Approval shows intent, not the diff | diff is computed inside `run()`; restructuring for pre-approval diffs belongs with the TUI overlay | phase 1 |
-| No streaming | `generateText` keeps the loop trivially testable; events already support it | phase 1 |
 | `json-fallback` / `xml-repair` accepted in config but not implemented | needs a local model on the bench to test against for real | phase 1 |
 | No repo map | biggest context feature, deserves its own focused build | phase 1 |
 | `bash` snapshots nothing | can't know what a command touches; shadow-git checkpoints are the real answer | phase 3 |

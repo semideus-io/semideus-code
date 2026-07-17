@@ -1,4 +1,4 @@
-import { generateText, type ToolResultPart } from "ai";
+import { streamText, type ToolResultPart } from "ai";
 import type { ToolResult } from "./contracts/tool";
 import { buildSystemPrompt } from "./prompt";
 import type { Session } from "./session";
@@ -20,6 +20,46 @@ interface CallOutcome {
   denied: boolean;
 }
 
+interface StepResult {
+  text: string;
+  toolCalls: ToolCallLike[];
+}
+
+/**
+ * One model call, streamed: emits an assistant-delta per text chunk as it
+ * arrives, then resolves with the step's final text and tool calls after
+ * appending the response messages and tracking usage. streamText never throws
+ * up front — failures (including the initial API error) arrive as error parts,
+ * which this rethrows so the loop's error handling matches the old
+ * generateText behavior: nothing tracked, nothing appended.
+ */
+async function streamStep(s: Session): Promise<StepResult> {
+  const result = streamText({
+    model: s.model.model,
+    system: buildSystemPrompt(s),
+    messages: s.messages,
+    tools: s.registry.asAiSdkTools(),
+    // The default onError writes to console; errors reach renderers as an
+    // AgentEvent instead (the error part below rethrows).
+    onError: () => {},
+  });
+
+  for await (const part of result.fullStream) {
+    if (part.type === "text-delta" && part.text) {
+      s.emit({ type: "assistant-delta", text: part.text });
+    } else if (part.type === "error") {
+      throw part.error instanceof Error ? part.error : new Error(String(part.error));
+    }
+  }
+
+  s.trackUsage(await result.totalUsage);
+  s.messages.push(...(await result.responseMessages));
+  return {
+    text: (await result.text).trim(),
+    toolCalls: (await result.toolCalls) as ToolCallLike[],
+  };
+}
+
 /**
  * The manual agent loop: model → intended tool calls → permission gate →
  * execution → results back to the model, until it answers in prose or the
@@ -33,23 +73,15 @@ export async function runTurn(s: Session, userMessage: string): Promise<void> {
 
   let concluded = false;
   for (let i = 0; i < s.config.maxSteps; i++) {
-    let res: Awaited<ReturnType<typeof generateText>>;
+    let res: StepResult;
     try {
-      res = await generateText({
-        model: s.model.model,
-        system: buildSystemPrompt(s),
-        messages: s.messages,
-        tools: s.registry.asAiSdkTools(),
-      });
+      res = await streamStep(s);
     } catch (err) {
       s.emit({ type: "error", message: `model call failed: ${errorMessage(err)}` });
       break;
     }
 
-    s.trackUsage(res.usage);
-    s.messages.push(...res.response.messages);
-
-    const text = res.text.trim();
+    const text = res.text;
     if (text) s.emit({ type: "assistant-text", text, final: res.toolCalls.length === 0 });
 
     if (res.toolCalls.length === 0) {
@@ -68,7 +100,7 @@ export async function runTurn(s: Session, userMessage: string): Promise<void> {
     // Invalid calls (unknown tool, unparsable input) already carry an SDK-generated
     // error result in response.messages — answering them again would duplicate the
     // toolCallId and break the provider API.
-    const calls = (res.toolCalls as ToolCallLike[]).filter((call) => !call.invalid);
+    const calls = res.toolCalls.filter((call) => !call.invalid);
     const resultParts: ToolResultPart[] = [];
     for (const call of calls) {
       const step = s.nextStep();

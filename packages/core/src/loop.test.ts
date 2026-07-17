@@ -32,7 +32,51 @@ type MockResponse = {
     | { type: "tool-call"; toolCallId: string; toolName: string; input: string }
   >;
   finishReason: "stop" | "tool-calls";
+  /** Emit an error part after the content instead of finishing the stream. */
+  streamError?: string;
 };
+
+type MockUsage = { total: number; cacheRead?: number; cacheWrite?: number };
+
+type ModelStream = Awaited<ReturnType<MockLanguageModelV3["doStream"]>>["stream"];
+type StreamPart = ModelStream extends ReadableStream<infer P> ? P : never;
+
+/** V3 spec stream parts for one scripted response; text arrives in two deltas. */
+function streamParts(res: MockResponse | undefined, usage?: MockUsage): StreamPart[] {
+  const parts: StreamPart[] = [{ type: "stream-start", warnings: [] }];
+  let textId = 0;
+  for (const piece of res?.content ?? []) {
+    if (piece.type === "text") {
+      const id = `text-${textId++}`;
+      parts.push({ type: "text-start", id });
+      const mid = Math.ceil(piece.text.length / 2);
+      for (const delta of [piece.text.slice(0, mid), piece.text.slice(mid)]) {
+        if (delta) parts.push({ type: "text-delta", id, delta });
+      }
+      parts.push({ type: "text-end", id });
+    } else {
+      parts.push(piece);
+    }
+  }
+  if (res?.streamError) {
+    parts.push({ type: "error", error: new Error(res.streamError) });
+    return parts;
+  }
+  parts.push({
+    type: "finish",
+    finishReason: { unified: res?.finishReason ?? "stop", raw: undefined },
+    usage: {
+      inputTokens: {
+        total: usage?.total ?? 10,
+        noCache: undefined,
+        cacheRead: usage?.cacheRead,
+        cacheWrite: usage?.cacheWrite,
+      },
+      outputTokens: { total: 5, text: undefined, reasoning: undefined },
+    },
+  });
+  return parts;
+}
 
 function makeSession(opts: {
   responses: MockResponse[];
@@ -40,27 +84,22 @@ function makeSession(opts: {
   policy?: Partial<PermissionPolicy>;
   events?: AgentEvent[];
   prompts?: unknown[];
-  usage?: { total: number; cacheRead?: number; cacheWrite?: number };
+  usage?: MockUsage;
 }): Session {
   let call = 0;
   const model = new MockLanguageModelV3({
-    doGenerate: async (options) => {
+    doStream: async (options) => {
       opts.prompts?.push(options.prompt);
       const res = opts.responses[Math.min(call, opts.responses.length - 1)];
       call++;
+      const parts = streamParts(res, opts.usage);
       return {
-        content: res?.content ?? [],
-        finishReason: { unified: res?.finishReason ?? "stop", raw: undefined },
-        usage: {
-          inputTokens: {
-            total: opts.usage?.total ?? 10,
-            noCache: undefined,
-            cacheRead: opts.usage?.cacheRead,
-            cacheWrite: opts.usage?.cacheWrite,
+        stream: new ReadableStream({
+          start(controller) {
+            for (const part of parts) controller.enqueue(part);
+            controller.close();
           },
-          outputTokens: { total: 5, text: undefined, reasoning: undefined },
-        },
-        warnings: [],
+        }),
       };
     },
   });
@@ -198,6 +237,49 @@ describe("runTurn", () => {
     expect(loaded).not.toBeNull();
     expect(loaded?.messages.length).toBe(4);
     expect(loaded?.title).toContain("please echo hi");
+  });
+
+  test("streams assistant deltas that concatenate to the assistant text", async () => {
+    const events: AgentEvent[] = [];
+    const session = makeSession({ responses: toolCallThenDone, events });
+
+    await runTurn(session, "please echo hi");
+
+    const deltas = events.flatMap((e) => (e.type === "assistant-delta" ? [e.text] : []));
+    const texts = events.flatMap((e) => (e.type === "assistant-text" ? [e.text] : []));
+    // two responses, each streamed in two chunks
+    expect(deltas).toHaveLength(4);
+    expect(deltas.join("")).toBe(texts.join(""));
+
+    // the live region hears about text before any tool executes
+    const firstDelta = events.findIndex((e) => e.type === "assistant-delta");
+    const firstToolStart = events.findIndex((e) => e.type === "tool-start");
+    expect(firstDelta).toBeGreaterThan(-1);
+    expect(firstDelta).toBeLessThan(firstToolStart);
+  });
+
+  test("a mid-stream error becomes an error event, tracking nothing", async () => {
+    const events: AgentEvent[] = [];
+    const session = makeSession({
+      responses: [
+        {
+          content: [{ type: "text", text: "half an answer" }],
+          finishReason: "stop",
+          streamError: "connection reset",
+        },
+      ],
+      events,
+    });
+
+    await runTurn(session, "hi");
+
+    const error = events.find((e) => e.type === "error");
+    expect(error?.type === "error" && error.message).toContain("connection reset");
+    // the failed step leaves no trace: no usage, no assistant message, no conclusion
+    expect(session.usage.inputTokens).toBe(0);
+    expect(session.messages.map((m) => m.role)).toEqual(["user"]);
+    expect(events.some((e) => e.type === "notice")).toBe(true);
+    expect(events.at(-1)?.type).toBe("turn-end");
   });
 
   test("unknown tool calls get exactly one error result, not a duplicate answer", async () => {

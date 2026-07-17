@@ -9,6 +9,9 @@ export function printEvent(event: AgentEvent): void {
   switch (event.type) {
     case "turn-start":
       break;
+    case "assistant-delta":
+      // Headless output prints whole messages; the TUI's live region consumes deltas.
+      break;
     case "assistant-text":
       // Step narration is dimmed; only the concluding answer prints plain.
       console.log(event.final ? `\n${event.text}` : c.dim(`\n${event.text}`));

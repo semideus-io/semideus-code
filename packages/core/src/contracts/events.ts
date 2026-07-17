@@ -43,6 +43,15 @@ export interface UsageTotals {
 export type AgentEvent =
   | { type: "turn-start"; sessionId: string }
   | {
+      /**
+       * A streamed chunk of the assistant message in flight. Renderers with a
+       * live region draw these; the assistant-text event that follows is the
+       * authoritative full text (deltas may be dropped, never trusted alone).
+       */
+      type: "assistant-delta";
+      text: string;
+    }
+  | {
       type: "assistant-text";
       text: string;
       /** True for the concluding answer; false for narration between tool calls. */
