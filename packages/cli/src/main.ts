@@ -22,6 +22,7 @@ import { ApprovalBridge, replayItems, runTui, type TuiHandle } from "@semideus/t
 import { c } from "./colors";
 import { type CommandState, runCommand } from "./commands";
 import { loadConfig } from "./config";
+import { resolveModelId } from "./model-choice";
 import { printDiff, printEvent } from "./print";
 import { formatSessionLine, pickSessionId } from "./session-picker";
 
@@ -45,7 +46,7 @@ flags:
   -v, --version              version
 
 commands (TUI):
-  /why [n]           decision log — every action with its stated rationale and artifacts
+  /why [n]           decision panel — ↑↓ to move, enter for the diff/output, esc to close
   /cost              token + cost totals for this session
   /undo              restore files from the last mutating action
   /mode              switch default|explain
@@ -60,7 +61,9 @@ async function main(): Promise<void> {
     allowPositionals: true,
     options: {
       prompt: { type: "string", short: "p" },
-      model: { type: "string", short: "m", default: "default" },
+      // No default: an absent -m must stay distinguishable from "-m default",
+      // so a resumed session can fall back to the model it actually ran on.
+      model: { type: "string", short: "m" },
       pick: { type: "boolean", default: false },
       yes: { type: "boolean", default: false },
       help: { type: "boolean", short: "h", default: false },
@@ -108,7 +111,6 @@ interface ChatFlags {
 async function startChat(flags: ChatFlags, resumeId?: string): Promise<void> {
   const { config, path: configPath, created } = loadConfig();
 
-  const spec = buildModelSpec(flags.model ?? "default", mergedModels(config));
   const store = new SessionStore();
 
   // "pick" is main()'s sentinel for `resume --pick`; ids are uuids, no collision.
@@ -123,6 +125,36 @@ async function startChat(flags: ChatFlags, resumeId?: string): Promise<void> {
     if (!picked) return;
     resolvedResume = picked;
   }
+
+  // Resolve "latest" / an id prefix to the full id here: the model choice below
+  // needs to load the stored session, and resolution must happen exactly once.
+  if (resolvedResume) {
+    const full =
+      resolvedResume === "latest"
+        ? store.latestSessionId()
+        : resolveSessionId(store, resolvedResume);
+    if (!full) {
+      console.error(
+        c.red(
+          resolvedResume === "latest"
+            ? "no sessions to resume"
+            : `no session matching "${resolvedResume}"`,
+        ),
+      );
+      process.exitCode = 1;
+      return;
+    }
+    resolvedResume = full;
+  }
+
+  // Sessions store the config id, so a resumed local session stays local.
+  const models = mergedModels(config);
+  const { id: modelId, notice: modelNotice } = resolveModelId(
+    flags.model,
+    resolvedResume ? store.loadSession(resolvedResume)?.model : undefined,
+    models,
+  );
+  const spec = buildModelSpec(modelId, models);
 
   const registry = new ToolRegistry();
   for (const tool of builtinTools) registry.register(tool);
@@ -168,6 +200,7 @@ async function startChat(flags: ChatFlags, resumeId?: string): Promise<void> {
       return;
     }
     if (opened.resumedLine) console.log(c.dim(opened.resumedLine));
+    if (modelNotice) console.log(c.dim(modelNotice));
     try {
       await runTurn(opened.session, flags.prompt, { signal: controller.signal });
     } catch (err) {
@@ -220,6 +253,7 @@ async function startChat(flags: ChatFlags, resumeId?: string): Promise<void> {
     },
     interrupt: () => turnController?.abort(),
     command: (line) => runCommand(session, line, commandState, HELP),
+    decisions: () => session.decisions(),
   };
 
   const bannerLines = [
@@ -227,6 +261,7 @@ async function startChat(flags: ChatFlags, resumeId?: string): Promise<void> {
     "Daimon advises; nothing mutating runs without your yes. /help for commands",
   ];
   if (opened.resumedLine) bannerLines.push(opened.resumedLine);
+  if (modelNotice) bannerLines.push(modelNotice);
   if (created) bannerLines.push(`wrote default config to ${configPath}`);
 
   await runTui({

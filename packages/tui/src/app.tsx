@@ -1,4 +1,4 @@
-import type { ApprovalDecision, EventSink } from "@semideus/core";
+import type { ApprovalDecision, DecisionEvent, EventSink } from "@semideus/core";
 import { Box, Static, Text, useApp, useInput } from "ink";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ApprovalBridge, PendingApproval } from "./approval-bridge";
@@ -6,6 +6,7 @@ import { ApprovalOverlay } from "./components/approval-overlay";
 import { InputBar } from "./components/input-bar";
 import { StatusBar } from "./components/status-bar";
 import { TranscriptLine } from "./components/transcript-line";
+import { WhyPanel } from "./components/why-panel";
 import { type TranscriptItem, transcriptItem } from "./transcript";
 
 /** Streamed deltas are batched into the live region at this cadence. */
@@ -30,6 +31,8 @@ export interface TuiHandle {
   interrupt(): void;
   /** Execute a slash command, returning transcript lines (may be ANSI-colored). */
   command(line: string): Promise<CommandResult>;
+  /** The session's decision log, for the /why panel. Read-only snapshot. */
+  decisions(): DecisionEvent[];
 }
 
 export interface AppProps {
@@ -43,6 +46,13 @@ export interface AppProps {
 }
 
 type KeyedItem = TranscriptItem & { id: number };
+
+/** Open-panel state: the decisions snapshotted at open, plus cursor and detail. */
+interface WhyState {
+  decisions: DecisionEvent[];
+  cursor: number;
+  expanded: boolean;
+}
 
 function Spinner() {
   const [frame, setFrame] = useState(0);
@@ -68,6 +78,8 @@ export function App({ handle, approvals, banner, model, sessionId, initialItems 
   // Mirror of `input` for the key handler: chunks can arrive faster than renders.
   const inputRef = useRef("");
   const [sessionCost, setSessionCost] = useState(0);
+  // Non-null while the /why panel is open; it owns the keyboard until esc.
+  const [why, setWhy] = useState<WhyState | null>(null);
 
   const setBuffer = useCallback((value: string) => {
     inputRef.current = value;
@@ -106,10 +118,42 @@ export function App({ handle, approvals, banner, model, sessionId, initialItems 
     return () => clearInterval(timer);
   }, [running]);
 
+  /**
+   * `/why` is the one command the TUI answers itself: headless prints lines,
+   * here it opens a navigable panel over the same decision log. The cursor
+   * starts on the newest step — "why did you just do that" is the live question.
+   */
+  const openWhy = useCallback(
+    (arg: string) => {
+      const decisions = handle.decisions();
+      if (decisions.length === 0) {
+        append({ kind: "info", lines: ["  no decisions yet this session"] });
+        return;
+      }
+      const found = arg ? decisions.findIndex((d) => d.step === Number(arg)) : -1;
+      if (arg && found === -1) {
+        append({ kind: "info", lines: [`  no step ${arg}`] });
+        return;
+      }
+      setWhy({
+        decisions,
+        cursor: found === -1 ? decisions.length - 1 : found,
+        // An explicit /why N means "show me that one" — open its artifact too.
+        expanded: found !== -1,
+      });
+    },
+    [handle, append],
+  );
+
   const handleLine = useCallback(
     (line: string) => {
       append({ kind: "user", text: line });
       if (line.startsWith("/")) {
+        const [cmd = "", ...rest] = line.slice(1).split(/\s+/);
+        if (cmd === "why") {
+          openWhy(rest[0] ?? "");
+          return;
+        }
         void handle.command(line).then((result) => {
           if (result.lines.length > 0) append({ kind: "info", lines: result.lines });
           if (result.exit) exit();
@@ -127,7 +171,7 @@ export function App({ handle, approvals, banner, model, sessionId, initialItems 
         })
         .finally(() => setRunning(false));
     },
-    [handle, append, exit],
+    [handle, append, exit, openWhy],
   );
 
   useInput((char, key) => {
@@ -142,6 +186,21 @@ export function App({ handle, approvals, banner, model, sessionId, initialItems 
         append({ kind: "approval", tool: pending.request.toolName, decision });
         pending.resolve(decision);
       }
+      return;
+    }
+    if (why) {
+      // The panel owns the keyboard while open — nothing reaches the input buffer.
+      if (key.escape || char === "q") setWhy(null);
+      else if (key.return || char === " ") setWhy({ ...why, expanded: !why.expanded });
+      else if (key.upArrow || char === "k")
+        // Moving collapses the artifact, so the panel's height stays predictable.
+        setWhy({ ...why, cursor: Math.max(0, why.cursor - 1), expanded: false });
+      else if (key.downArrow || char === "j")
+        setWhy({
+          ...why,
+          cursor: Math.min(why.decisions.length - 1, why.cursor + 1),
+          expanded: false,
+        });
       return;
     }
     if (running) {
@@ -183,7 +242,10 @@ export function App({ handle, approvals, banner, model, sessionId, initialItems 
         </Box>
       ) : null}
       {pending ? <ApprovalOverlay request={pending.request} /> : null}
-      {!pending && !running ? (
+      {why ? (
+        <WhyPanel decisions={why.decisions} cursor={why.cursor} expanded={why.expanded} />
+      ) : null}
+      {!pending && !running && !why ? (
         <Box marginTop={1}>
           <InputBar value={input} />
         </Box>

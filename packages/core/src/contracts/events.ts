@@ -10,6 +10,20 @@ export type DecisionKind = "plan" | "tool_call" | "edit" | "conclusion";
  * ever presented anchored to `refs`: the observable artifacts (files touched,
  * commands run) that make it checkable.
  */
+/**
+ * The evidence for a decision. `refs` *name* the artifact; this **is** the
+ * artifact — the diff that was applied, the output a command actually printed.
+ * `/why` renders it beside the rationale so the model's stated account is
+ * checkable against what happened, which is the whole epistemic contract.
+ * Truncated at write time: the log stays queryable, not a blob store.
+ */
+export interface DecisionArtifact {
+  /** Unified diff, for edits. */
+  diff?: string;
+  /** What the command printed, head+tail if long. */
+  output?: string;
+}
+
 export interface DecisionEvent {
   ts: number;
   sessionId: string;
@@ -23,6 +37,8 @@ export interface DecisionEvent {
   alternatives?: string[];
   /** Files touched, commands run, diff ids. */
   refs: string[];
+  /** The observable evidence behind this step. Absent for read-class steps. */
+  artifact?: DecisionArtifact;
 }
 
 export interface UsageTotals {

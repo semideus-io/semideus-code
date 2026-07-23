@@ -81,7 +81,8 @@ export class SessionStore {
         summary text not null,
         rationale text not null,
         alternatives_json text,
-        refs_json text not null default '[]'
+        refs_json text not null default '[]',
+        artifact_json text
       );
       create index if not exists decisions_session on decisions(session_id, step);
       create table if not exists snapshots (
@@ -103,6 +104,16 @@ export class SessionStore {
         occurrences integer not null default 1
       );
     `);
+    // `create table if not exists` never widens an existing table, so columns
+    // added after a release need this. Sessions predating the column read back
+    // with artifact undefined — /why degrades to refs, it doesn't break.
+    this.addColumn("decisions", "artifact_json", "text");
+  }
+
+  private addColumn(table: string, column: string, decl: string): void {
+    const cols = this.db.query<{ name: string }, []>(`pragma table_info(${table})`).all();
+    if (cols.some((col) => col.name === column)) return;
+    this.db.exec(`alter table ${table} add column ${column} ${decl}`);
   }
 
   upsertSession(data: SessionData): void {
@@ -176,8 +187,8 @@ export class SessionStore {
   logDecision(d: DecisionEvent): void {
     this.db
       .query(
-        `insert into decisions (session_id, step, ts, kind, summary, rationale, alternatives_json, refs_json)
-         values (?, ?, ?, ?, ?, ?, ?, ?)`,
+        `insert into decisions (session_id, step, ts, kind, summary, rationale, alternatives_json, refs_json, artifact_json)
+         values (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .run(
         d.sessionId,
@@ -188,6 +199,7 @@ export class SessionStore {
         d.rationale,
         d.alternatives ? JSON.stringify(d.alternatives) : null,
         JSON.stringify(d.refs),
+        d.artifact ? JSON.stringify(d.artifact) : null,
       );
   }
 
@@ -208,6 +220,9 @@ export class SessionStore {
         ? (JSON.parse(String(row.alternatives_json)) as string[])
         : undefined,
       refs: JSON.parse(String(row.refs_json)) as string[],
+      artifact: row.artifact_json
+        ? (JSON.parse(String(row.artifact_json)) as DecisionEvent["artifact"])
+        : undefined,
     }));
   }
 

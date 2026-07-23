@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
+import { z } from "zod";
 import type { AgentEvent } from "./contracts/events";
-import type { Tool } from "./contracts/tool";
+import type { Tool, ToolResult } from "./contracts/tool";
 import { runTurn } from "./loop";
 import type { ApprovalRequest } from "./permissions";
 import { echoTool, type MockResponse, makeSession } from "./test-kit";
@@ -28,6 +29,89 @@ const toolCallThenDone: MockResponse[] = [
   },
   { content: [{ type: "text", text: "Done — the echo worked." }], finishReason: "stop" },
 ];
+
+/** A tool that returns whatever artifacts a test needs, so the decision log can be checked. */
+function artifactTool(artifacts: ToolResult["artifacts"], output = "done"): Tool {
+  return {
+    name: "edit_file",
+    description: "stand-in for a mutating tool",
+    schema: z.object({ path: z.string().describe("file to touch") }),
+    permission: "write",
+    summarize: () => "edit a.ts",
+    run: async () => ({ ok: true, output, artifacts }),
+  } as Tool;
+}
+
+const callArtifactTool: MockResponse[] = [
+  {
+    content: [
+      { type: "text", text: "Renaming for clarity." },
+      {
+        type: "tool-call",
+        toolCallId: "call-1",
+        toolName: "edit_file",
+        input: JSON.stringify({ path: "a.ts" }),
+      },
+    ],
+    finishReason: "tool-calls",
+  },
+  { content: [{ type: "text", text: "Done." }], finishReason: "stop" },
+];
+
+describe("decision artifacts", () => {
+  test("an edit's decision carries its diff — the evidence /why renders", async () => {
+    const session = makeSession({
+      responses: callArtifactTool,
+      tool: artifactTool({ path: "a.ts", diff: "--- a\n+++ b\n-old\n+new" }),
+      policy: { write: "allow" },
+    });
+
+    await runTurn(session, "rename it");
+
+    const [edit] = session.decisions();
+    expect(edit?.kind).toBe("edit");
+    expect(edit?.artifact?.diff).toContain("+new");
+    // A diff is not command output — the panel must not label it as such.
+    expect(edit?.artifact?.output).toBeUndefined();
+  });
+
+  test("a command's decision carries what it printed, even on success", async () => {
+    const session = makeSession({
+      responses: callArtifactTool,
+      tool: artifactTool({ command: "bun test" }, "7 pass\n0 fail"),
+      policy: { write: "allow" },
+    });
+
+    await runTurn(session, "run the tests");
+
+    expect(session.decisions()[0]?.artifact?.output).toBe("7 pass\n0 fail");
+  });
+
+  test("read-class steps store no artifact — the log stays a log", async () => {
+    const session = makeSession({ responses: toolCallThenDone });
+
+    await runTurn(session, "please echo hi");
+
+    expect(session.decisions()[0]?.artifact).toBeUndefined();
+  });
+
+  test("a huge artifact is truncated at write time, keeping head and tail", async () => {
+    const giant = Array.from({ length: 4_000 }, (_, i) => `line ${i}`).join("\n");
+    const session = makeSession({
+      responses: callArtifactTool,
+      tool: artifactTool({ command: "noisy" }, giant),
+      policy: { write: "allow" },
+    });
+
+    await runTurn(session, "run it");
+
+    const stored = session.decisions()[0]?.artifact?.output ?? "";
+    expect(stored.length).toBeLessThan(giant.length);
+    expect(stored).toContain("line 0");
+    expect(stored).toContain("line 3999");
+    expect(stored).toContain("truncated");
+  });
+});
 
 describe("runTurn", () => {
   test("executes a tool call, feeds the result back, and concludes", async () => {

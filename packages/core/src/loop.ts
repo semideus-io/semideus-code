@@ -1,4 +1,5 @@
 import { streamText, type ToolResultPart } from "ai";
+import type { DecisionArtifact } from "./contracts/events";
 import type { ToolResult } from "./contracts/tool";
 import { buildSystemPrompt } from "./prompt";
 import type { Session } from "./session";
@@ -323,6 +324,7 @@ async function executeCall(
     summary,
     rationale,
     refs: refsOf(result),
+    artifact: artifactOf(result),
   });
 
   return { result, denied };
@@ -333,6 +335,27 @@ function refsOf(result: ToolResult): string[] {
   if (result.artifacts?.path) refs.push(result.artifacts.path);
   if (result.artifacts?.command) refs.push(`$ ${result.artifacts.command}`);
   return refs;
+}
+
+/** Per-artifact cap. Generous enough to read a real diff, small enough that a
+ *  session's decision log stays a log — bash output is the usual offender. */
+const MAX_ARTIFACT_CHARS = 4000;
+
+/**
+ * The checkable evidence for a step. Edits carry their diff; commands carry
+ * what they printed (success included — "the tests passed" is a claim, the
+ * output is the artifact). Read-class calls get nothing: the file isn't
+ * evidence of a decision, and storing every read would bloat the log.
+ */
+function artifactOf(result: ToolResult): DecisionArtifact | undefined {
+  const artifact: DecisionArtifact = {};
+  if (result.artifacts?.diff) {
+    artifact.diff = truncateMiddle(result.artifacts.diff, MAX_ARTIFACT_CHARS);
+  }
+  if (result.artifacts?.command && result.output.trim()) {
+    artifact.output = truncateMiddle(result.output.trim(), MAX_ARTIFACT_CHARS);
+  }
+  return artifact.diff || artifact.output ? artifact : undefined;
 }
 
 function errorMessage(err: unknown): string {

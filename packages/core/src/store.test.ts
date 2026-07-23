@@ -1,4 +1,6 @@
+import { Database } from "bun:sqlite";
 import { describe, expect, test } from "bun:test";
+import { rmSync } from "node:fs";
 import { SessionStore } from "./store";
 
 describe("SessionStore", () => {
@@ -51,6 +53,80 @@ describe("SessionStore", () => {
     const decisions = store.decisions("s1");
     expect(decisions.map((d) => d.step)).toEqual([1, 2]);
     expect(decisions[0]?.refs).toEqual(["a.ts"]);
+    expect(decisions[0]?.artifact).toBeUndefined();
+  });
+
+  test("decision artifacts round-trip — the evidence /why renders", () => {
+    const store = new SessionStore(":memory:");
+    store.logDecision({
+      ts: 1,
+      sessionId: "s1",
+      step: 1,
+      kind: "edit",
+      summary: "edit a.ts",
+      rationale: "renamed for clarity",
+      refs: ["a.ts"],
+      artifact: { diff: "--- a\n+++ b\n-old\n+new" },
+    });
+    store.logDecision({
+      ts: 2,
+      sessionId: "s1",
+      step: 2,
+      kind: "tool_call",
+      summary: "run tests",
+      rationale: "verify the rename",
+      refs: ["$ bun test"],
+      artifact: { output: "7 pass\n0 fail" },
+    });
+    const [edit, run] = store.decisions("s1");
+    expect(edit?.artifact?.diff).toContain("+new");
+    expect(run?.artifact?.output).toBe("7 pass\n0 fail");
+    expect(run?.artifact?.diff).toBeUndefined();
+  });
+
+  test("a pre-artifact database is migrated, and its old rows still read", () => {
+    const path = `/tmp/demi-migrate-${process.pid}.sqlite`;
+    // Stand up the schema as it shipped before artifacts existed.
+    const legacy = new Database(path);
+    legacy.exec(`
+      create table decisions (
+        id integer primary key autoincrement,
+        session_id text not null,
+        step integer not null,
+        ts integer not null,
+        kind text not null,
+        summary text not null,
+        rationale text not null,
+        alternatives_json text,
+        refs_json text not null default '[]'
+      );
+      insert into decisions (session_id, step, ts, kind, summary, rationale, refs_json)
+      values ('s1', 1, 1, 'tool_call', 'old row', 'from before', '["a.ts"]');
+    `);
+    legacy.close();
+
+    try {
+      const store = new SessionStore(path);
+      const [old] = store.decisions("s1");
+      expect(old?.summary).toBe("old row");
+      expect(old?.artifact).toBeUndefined();
+      // And the widened table accepts new rows.
+      store.logDecision({
+        ts: 2,
+        sessionId: "s1",
+        step: 2,
+        kind: "edit",
+        summary: "new row",
+        rationale: "",
+        refs: [],
+        artifact: { diff: "+x" },
+      });
+      expect(store.decisions("s1")[1]?.artifact?.diff).toBe("+x");
+    } finally {
+      rmSync(path, { force: true });
+      rmSync(`${path}-wal`, { force: true });
+      rmSync(`${path}-shm`, { force: true });
+    }
   });
 
   test("snapshots group by step and can be deleted per step", () => {

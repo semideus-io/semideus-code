@@ -1,5 +1,6 @@
 export type {
   AgentEvent,
+  DecisionArtifact,
   DecisionEvent,
   DecisionKind,
   EventSink,
