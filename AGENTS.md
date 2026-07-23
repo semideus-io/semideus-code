@@ -33,4 +33,4 @@ Terminal coding agent. Bun + TypeScript monorepo. Persona: **Daimon** — advise
 
 `docs/PLAN.md` — full product plan · `DEVELOPMENT.md` — way of working, phase gates · `docs/adr/` — decisions.
 
-Current phase: **1** — all feature gates shipped (streaming, pre-approval diffs, Ink TUI, session picker + replay, context warnings, repo map, tool-mode fallbacks, esc-to-interrupt). Remaining: the exit criterion — every diff landing on `main` reviewed inside demi on `local`, 7 days of DOGFOOD.md entries. See DEVELOPMENT.md § Phase gates and § Dogfooding protocol.
+Current phase: **2 — the moat** (started 2026-07-23). Phase 1 is complete: streaming, pre-approval diffs, Ink TUI, session picker + replay, context warnings, repo map, tool-mode fallbacks, esc-to-interrupt. Now building the learning layer — `/why` panel, plan-first, mentor mode, concept ledger, recall, the Semideus Learn bridge. See DEVELOPMENT.md § Phase gates and § How work gets proven.

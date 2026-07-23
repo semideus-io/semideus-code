@@ -1,16 +1,12 @@
-# DOGFOOD.md — friction journal
+# DOGFOOD.md — friction journal *(closed 2026-07-23)*
 
-Every real task done with `demi` on this repo gets a line here. Friction entries are the
-phase backlog — they outrank speculative features (DEVELOPMENT.md §8).
-
-Format: `date · task · what ground · one-line fix idea`
-
-**Protocol revised 2026-07-23** (DEVELOPMENT.md §8): demi reads, another agent writes.
-Every diff landing on `main` gets reviewed inside demi on `local` before it's forgotten.
-The old "demi implements everything" rule was unsatisfiable — cloud prices stopped
-sessions, and the only local model was a 1.5b that fabricated a tool result — and it had
-stalled this journal for six days. Escalations count as entries: when demi could have
-done a task and stalled, that stall is the friction line.
+> **Archived.** This journal gated phases 0 and 1. It no longer gates anything —
+> phases now turn on features shipped and verified (DEVELOPMENT.md §8). It did its
+> job once: the eight phase-0 entries below set phase 1's entire priority order, and
+> all eight were fixed. It stopped paying after that, because the implementing agent
+> was finding the same friction earlier and cheaper. Kept as a record, not a process.
+>
+> Format was: `date · task · what ground · one-line fix idea`
 
 ---
 

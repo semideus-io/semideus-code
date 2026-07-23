@@ -38,11 +38,16 @@ in phase 1 is not code — it's proof: a week of actually using it daily.
 **Health check right now:** 162 tests pass across 23 files, `tsc --noEmit` clean,
 ~6,700 lines of source across 7 packages.
 
-## 3. What's sitting uncommitted in the working tree
+## 3. Phase 1 is closed
 
-The **turn-interruption feature** (ADR-0006) plus its docs — 16 modified files, ~300
-added lines. It's finished and verified (tests + typecheck green), just not committed.
-This is the last phase-1 feature; committing it closes the feature list.
+Turn interruption (ADR-0006) landed in `195d33f` on 2026-07-23 — the sixth and last
+phase-1 feature gate. **Phase 2 (the moat) starts now.**
+
+The dogfooding journal was retired the same day. It gated phases 0–1 and did real work
+once — the eight phase-0 entries set phase 1's whole priority order — but it stopped
+paying and had stalled the repo for six days. Phases now turn on features shipped and
+verified; the implementing agent proves the work, Giannis tests the experience
+(DEVELOPMENT.md §8).
 
 ## 4. What is *not* built yet
 
@@ -73,17 +78,23 @@ Full table in [DEVELOPMENT.md §10](../DEVELOPMENT.md). The ones you'll feel fir
 
 ## 6. The next step
 
-**Done 2026-07-23:** the interruption work is committed (`195d33f`), closing the
-phase-1 feature list.
+**Phase 2, in build order.** Each item reads from data the loop already stores, so the
+order is cheapest-first and each one is testable by eye:
 
-**The phase-1 gate, as rewritten 2026-07-23** (DEVELOPMENT.md §8): the old criterion —
-demi as your default *implementing* agent — was unsatisfiable and had stalled the repo
-for six days. It's now **demi reads, another agent writes**: every diff landing on
-`main` gets reviewed inside demi on `local` (qwen3-coder:30b via Ollama — zero marginal
-cost), and the gate is 7 days of [DOGFOOD.md](../DOGFOOD.md) entries with ≥10 friction
-lines. The "default agent" claim moved to phase 3 where the product can carry it.
-Reviewing real diffs exercises the moat surfaces — repo map, decision log, `/why`,
-explain mode — on the corpus that matters most.
+1. **`/why` panel in the TUI** — navigable, linked to artifacts. `/why` is text-only
+   today; the `DecisionEvent`s it needs are already logged. *(in progress)*
+2. **Plan-first mode** — numbered plan with per-step rationale, approve/edit/reject
+   before anything mutates. One prompt state + one overlay, reusing the approval path.
+3. **`mentor` mode** — `TODO(you)` gaps at decision points, then a senior-engineer
+   review of your diff. The deep one.
+4. **Concept ledger + `/digest`** — a `cheap`-model pass over diffs and the decision log
+   fills `packages/learning/`, which is a stub today.
+5. **Built-in recall** — SM-2 over the ledger, `demi review`.
+6. **MCP client + Semideus Learn bridge** — concepts become knowledge cards; teach-back
+   gates big merges. The unfair advantage nobody else can copy.
+
+Then `/onboard` + `FOR-YOU.md`. Phase-2 exit: a review streak on coding-derived
+concepts ≥ 2 weeks.
 
 **First phase-2 feature when the gate opens:** the `/why` TUI panel + plan-first mode.
 Reason to start there rather than the ledger: both read from `DecisionEvent`s that
