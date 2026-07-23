@@ -113,7 +113,7 @@ The rule from the plan, operationalized: **you must be dogfooding phase N daily 
 - [x] Tool-mode fallback tiers (`json-fallback`, `xml-repair`) proven against one local model *(landed 2026-07-17 — protocol in the prompt, same executeCall/gate as native; json tier proven live on qwen2.5-coder:1.5b via Ollama, grounded answers from real tool runs; xml tier integration-tested, live proof waits on an XML-native model — ledger)*
 - [x] Session picker for `resume`, context warnings at ~70% window *(landed 2026-07-17 — `resume --pick`, full transcript replay from stored messages, warn-once notice at 70% of the model window; PTY-verified)*
 - [x] Esc interrupts the running turn; ctrl+c does the same headless *(landed 2026-07-18 — ADR-0006; AbortSignal through loop + ToolContext, partial text kept, unrun batch calls answered so stored history stays provider-valid, bash killed on abort; local usage mapping landed alongside so /cost and the 70% warning work on Ollama runs)*
-- [ ] **Exit criterion**: demi is your default agent for this repo; a week of DOGFOOD.md entries
+- [ ] **Exit criterion**: every diff landed on `main` is reviewed inside demi on `local`; 7 days of DOGFOOD.md entries, ≥10 friction lines *(revised 2026-07-23 — §8; the "default agent" claim moved to phase 3, where the product can carry it)*
 
 ### Phase 2 — The moat (weeks 5–8)
 - [ ] `/why` panel in TUI, linked to artifacts; plan-first mode with approve/edit/reject
@@ -128,10 +128,26 @@ The rule from the plan, operationalized: **you must be dogfooding phase N daily 
 - [ ] Compaction (re-inject AGENTS.md after every compaction), shadow-git checkpoints, subagent task tool, headless CI mode
 - [ ] Eval harness: all three tracks with first numbers
 - [ ] `bun build --compile` matrix + npm wrapper publish of `@semideus/code`
+- [ ] **Exit criterion**: demi is the default agent for this repo — implementation included, not just review *(moved here from phase 1 on 2026-07-23; it's a launch claim and needs the moat and the hardening under it before it's honest)*
 
 ## 8. Dogfooding protocol
 
-From now on, work on this repo starts inside `demi` (fall back to other agents only when demi itself is what's broken). Keep `DOGFOOD.md` in the repo root: date, task, what ground, one-line fix idea. Friction entries are the phase backlog — they outrank speculative features. Two standing rules: never disable the gate to go faster (the habit you build is the product you ship), and when demi surprises you, check `/why` first — that surface is the moat, and it has to earn its keep on you before anyone else.
+**Revised 2026-07-23.** The original rule — "work on this repo starts inside `demi`" — was unsatisfiable and had silently stalled the project for six days. It required demi to be the implementing agent, which meant either paying cloud `default` prices (the 2026-07-17 entry: one feature session burned enough tokens to stop the session) or implementing on qwen2.5-coder:1.5b (which fabricated a tool result in our own xml-tier test). Neither is a daily driver. A gate nobody can pass doesn't protect quality; it just stops work.
+
+The rule bundled two goals. Separate them:
+
+- **Finding friction** — what the eight phase-0 entries did, and they set phase 1's entire priority order. This is what phase 1's gate is for.
+- **Proving conviction** — "the author's default agent," a launch claim. That belongs in phase 3, not week 4.
+
+**The protocol: demi reads, another agent writes.** Every diff that lands on `main` gets reviewed *inside demi* before it's forgotten — point it at the change, ask what it does, ask why that approach, ask it to find a problem with it, check `/why` on its own reasoning. Implementation may happen wherever it's fastest.
+
+This is not a retreat. Dogfooding *this* product's thesis was never "demi writes my code" — it's *you understand your codebase better after using this*. Reviewing real diffs exercises exactly the surfaces that are the moat (repo map, decision log, `/why`, explain mode) on the corpus that matters most: this repo, this week. The automation thesis is the commodity half; the comprehension half is the product.
+
+Cost is no longer an excuse: `local` runs qwen3-coder:30b on Ollama (MoE, ~3b active — fast on Apple silicon, zero marginal cost). Reach for a paid model only when the local one is what's being tested.
+
+Escalation is data. When demi *could* plausibly do a task, let it try; when it stalls, hand off and **log the stall as a friction entry**. Those lines are the honest map of the capability gap.
+
+Keep `DOGFOOD.md` in the repo root: date, task, what ground, one-line fix idea. Friction entries are the phase backlog — they outrank speculative features. Two standing rules survive unchanged: never disable the gate to go faster (the habit you build is the product you ship), and when demi surprises you, check `/why` first — that surface is the moat, and it has to earn its keep on you before anyone else.
 
 ## 9. Decision records
 

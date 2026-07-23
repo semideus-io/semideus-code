@@ -5,6 +5,13 @@ phase backlog — they outrank speculative features (DEVELOPMENT.md §8).
 
 Format: `date · task · what ground · one-line fix idea`
 
+**Protocol revised 2026-07-23** (DEVELOPMENT.md §8): demi reads, another agent writes.
+Every diff landing on `main` gets reviewed inside demi on `local` before it's forgotten.
+The old "demi implements everything" rule was unsatisfiable — cloud prices stopped
+sessions, and the only local model was a 1.5b that fabricated a tool result — and it had
+stalled this journal for six days. Escalations count as entries: when demi could have
+done a task and stalled, that stall is the friction line.
+
 ---
 
 - 2026-07-16 · **task 1/3** — audit README vs actual CLI surface (headless `-p`, sonnet; session `464824df`) · model reached for `bash` twice to cat/grep files it already had read-class tools for — denied both times and it adapted correctly (no verbatim retry), but interactively this would be approval-prompt spam that trains the user to hit "always" · system-prompt nudge: prefer read_file/grep/glob for inspection — bash costs an approval → **fixed 2026-07-17** (working rule in prompt.ts)

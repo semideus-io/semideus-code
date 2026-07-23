@@ -73,15 +73,17 @@ Full table in [DEVELOPMENT.md §10](../DEVELOPMENT.md). The ones you'll feel fir
 
 ## 6. The next step
 
-**Immediately:** commit the interruption work in the tree. It's done and green.
+**Done 2026-07-23:** the interruption work is committed (`195d33f`), closing the
+phase-1 feature list.
 
-**Then the phase-1 gate:** the rule is *dogfood phase N daily before starting N+1*
-(DEVELOPMENT.md §7). The exit criterion is `demi` as the default agent on this repo
-with a week of [DOGFOOD.md](../DOGFOOD.md) entries. Constraint we already learned the
-hard way (2026-07-17): building features at cloud `default` prices burns paid tokens
-fast enough to stop the session — so dogfood runs go to `cheap`/local, and heavy
-implementation stays with another agent. Friction entries from that week outrank any
-speculative feature and become the phase-2 backlog ordering.
+**The phase-1 gate, as rewritten 2026-07-23** (DEVELOPMENT.md §8): the old criterion —
+demi as your default *implementing* agent — was unsatisfiable and had stalled the repo
+for six days. It's now **demi reads, another agent writes**: every diff landing on
+`main` gets reviewed inside demi on `local` (qwen3-coder:30b via Ollama — zero marginal
+cost), and the gate is 7 days of [DOGFOOD.md](../DOGFOOD.md) entries with ≥10 friction
+lines. The "default agent" claim moved to phase 3 where the product can carry it.
+Reviewing real diffs exercises the moat surfaces — repo map, decision log, `/why`,
+explain mode — on the corpus that matters most.
 
 **First phase-2 feature when the gate opens:** the `/why` TUI panel + plan-first mode.
 Reason to start there rather than the ledger: both read from `DecisionEvent`s that

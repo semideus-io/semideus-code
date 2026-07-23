@@ -33,4 +33,4 @@ Terminal coding agent. Bun + TypeScript monorepo. Persona: **Daimon** — advise
 
 `docs/PLAN.md` — full product plan · `DEVELOPMENT.md` — way of working, phase gates · `docs/adr/` — decisions.
 
-Current phase: **1** — all feature gates shipped (streaming, pre-approval diffs, Ink TUI, session picker + replay, context warnings, repo map, tool-mode fallbacks, esc-to-interrupt). Remaining: the exit criterion — demi as daily driver, a week of DOGFOOD.md entries. See DEVELOPMENT.md § Phase gates.
+Current phase: **1** — all feature gates shipped (streaming, pre-approval diffs, Ink TUI, session picker + replay, context warnings, repo map, tool-mode fallbacks, esc-to-interrupt). Remaining: the exit criterion — every diff landing on `main` reviewed inside demi on `local`, 7 days of DOGFOOD.md entries. See DEVELOPMENT.md § Phase gates and § Dogfooding protocol.
