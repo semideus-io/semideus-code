@@ -160,12 +160,24 @@ export class SessionStore {
     };
   }
 
-  listSessions(limit = 20): SessionMeta[] {
-    const rows = this.db
-      .query<Record<string, string | number>, [number]>(
-        "select id, created_at, updated_at, cwd, title, model, mode from sessions order by updated_at desc limit ?",
-      )
-      .all(limit);
+  /**
+   * Most-recent sessions, newest first. `cwd` scopes to one project: demi runs
+   * in any repo but stores every session in one database, so an unscoped list
+   * is other projects' history by default.
+   */
+  listSessions(limit = 20, cwd?: string): SessionMeta[] {
+    const select = "select id, created_at, updated_at, cwd, title, model, mode from sessions";
+    const rows = cwd
+      ? this.db
+          .query<Record<string, string | number>, [string, number]>(
+            `${select} where cwd = ? order by updated_at desc limit ?`,
+          )
+          .all(cwd, limit)
+      : this.db
+          .query<Record<string, string | number>, [number]>(
+            `${select} order by updated_at desc limit ?`,
+          )
+          .all(limit);
     return rows.map((row) => ({
       id: String(row.id),
       createdAt: Number(row.created_at),
@@ -177,11 +189,26 @@ export class SessionStore {
     }));
   }
 
-  latestSessionId(): string | null {
-    const row = this.db
-      .query<{ id: string }, []>("select id from sessions order by updated_at desc limit 1")
-      .get();
+  /** Newest session, optionally within one project. Backs `demi resume` with no id. */
+  latestSessionId(cwd?: string): string | null {
+    const row = cwd
+      ? this.db
+          .query<{ id: string }, [string]>(
+            "select id from sessions where cwd = ? order by updated_at desc limit 1",
+          )
+          .get(cwd)
+      : this.db
+          .query<{ id: string }, []>("select id from sessions order by updated_at desc limit 1")
+          .get();
     return row?.id ?? null;
+  }
+
+  /** How many sessions exist outside `cwd` — lets the CLI say what it's hiding. */
+  countSessionsElsewhere(cwd: string): number {
+    const row = this.db
+      .query<{ n: number }, [string]>("select count(*) as n from sessions where cwd != ?")
+      .get(cwd);
+    return row?.n ?? 0;
   }
 
   logDecision(d: DecisionEvent): void {

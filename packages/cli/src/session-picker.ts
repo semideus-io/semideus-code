@@ -23,10 +23,18 @@ export function resolvePick(answer: string, sessions: SessionMeta[]): string | n
 }
 
 /** Interactive `demi resume --pick`: list sessions, prompt, resolve to an id. */
-export async function pickSessionId(store: SessionStore): Promise<string | null> {
-  const sessions = store.listSessions(20);
+export async function pickSessionId(
+  store: SessionStore,
+  /** Scope to one project; omit to offer every session in the database. */
+  cwd?: string,
+): Promise<string | null> {
+  const sessions = store.listSessions(20, cwd);
   if (sessions.length === 0) {
-    console.log("no sessions yet — run `demi` to start one");
+    console.log(
+      cwd
+        ? "no sessions for this project yet — run `demi` to start one"
+        : "no sessions yet — run `demi` to start one",
+    );
     return null;
   }
   sessions.forEach((s, i) => {

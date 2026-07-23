@@ -30,6 +30,49 @@ describe("SessionStore", () => {
     expect(store.latestSessionId()).toBe("s1");
   });
 
+  test("sessions scope to a project, and report what's hidden", () => {
+    const store = new SessionStore(":memory:");
+    const base = {
+      createdAt: 1,
+      messages: [],
+      usage: {
+        inputTokens: 0,
+        outputTokens: 0,
+        cacheReadTokens: 0,
+        cacheWriteTokens: 0,
+        costUsd: 0,
+      },
+    };
+    store.upsertSession({
+      ...base,
+      id: "a",
+      updatedAt: 3,
+      cwd: "/repo/one",
+      title: "one",
+      model: "local",
+      mode: "default",
+    });
+    store.upsertSession({
+      ...base,
+      id: "b",
+      updatedAt: 2,
+      cwd: "/repo/two",
+      title: "two",
+      model: "default",
+      mode: "default",
+    });
+
+    expect(store.listSessions(20, "/repo/one").map((s) => s.id)).toEqual(["a"]);
+    expect(store.listSessions().map((s) => s.id)).toEqual(["a", "b"]);
+    expect(store.countSessionsElsewhere("/repo/one")).toBe(1);
+
+    // `demi resume` with no id must not reach into another project's history,
+    // even when that project's session is the most recent overall.
+    expect(store.latestSessionId()).toBe("a");
+    expect(store.latestSessionId("/repo/two")).toBe("b");
+    expect(store.latestSessionId("/repo/none")).toBeNull();
+  });
+
   test("decisions come back in step order", () => {
     const store = new SessionStore(":memory:");
     store.logDecision({

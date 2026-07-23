@@ -33,7 +33,7 @@ const HELP = `demi — Semideus Code (phase 1)
 usage:
   demi                       interactive TUI
   demi -p "task"             one-shot headless run
-  demi sessions              list stored sessions
+  demi sessions              list this project's sessions (--all for every project)
   demi resume [id]           resume a session (latest if no id)
   demi resume --pick         choose the session from a list
 
@@ -41,6 +41,7 @@ flags:
   -p, --prompt <text>        run one turn and exit
   -m, --model <id>           model from config (default: "default")
       --pick                 pick the session to resume interactively
+      --all                  with "sessions": every project, not just this one
       --yes                  auto-approve all actions (policy setting, gate still runs)
   -h, --help                 this help
   -v, --version              version
@@ -65,6 +66,7 @@ async function main(): Promise<void> {
       // so a resumed session can fall back to the model it actually ran on.
       model: { type: "string", short: "m" },
       pick: { type: "boolean", default: false },
+      all: { type: "boolean", default: false },
       yes: { type: "boolean", default: false },
       help: { type: "boolean", short: "h", default: false },
       version: { type: "boolean", short: "v", default: false },
@@ -81,7 +83,7 @@ async function main(): Promise<void> {
   }
 
   const command = positionals[0] ?? "chat";
-  if (command === "sessions") return listSessions();
+  if (command === "sessions") return listSessions(values.all === true);
   if (command === "resume")
     return startChat(values, positionals[1] ?? (values.pick ? "pick" : "latest"));
   if (command === "chat") return startChat(values);
@@ -90,15 +92,29 @@ async function main(): Promise<void> {
   process.exitCode = 1;
 }
 
-function listSessions(): void {
+/**
+ * Sessions for *this* project by default. demi runs in any repo but keeps one
+ * database, so an unscoped list is mostly other projects' history.
+ */
+function listSessions(all: boolean): void {
   const store = new SessionStore();
-  const sessions = store.listSessions();
+  const cwd = process.cwd();
+  const sessions = all ? store.listSessions() : store.listSessions(20, cwd);
   if (sessions.length === 0) {
-    console.log("no sessions yet — run `demi` to start one");
-    return;
+    console.log(
+      all
+        ? "no sessions yet — run `demi` to start one"
+        : "no sessions for this project yet — run `demi` to start one",
+    );
   }
   for (const s of sessions) {
-    console.log(formatSessionLine(s));
+    console.log(all ? `${formatSessionLine(s)}  ${c.dim(s.cwd)}` : formatSessionLine(s));
+  }
+  if (!all) {
+    const elsewhere = store.countSessionsElsewhere(cwd);
+    if (elsewhere > 0) {
+      console.log(c.dim(`  ${elsewhere} more in other projects — demi sessions --all`));
+    }
   }
 }
 
@@ -121,7 +137,7 @@ async function startChat(flags: ChatFlags, resumeId?: string): Promise<void> {
       process.exitCode = 1;
       return;
     }
-    const picked = await pickSessionId(store);
+    const picked = await pickSessionId(store, process.cwd());
     if (!picked) return;
     resolvedResume = picked;
   }
@@ -131,13 +147,13 @@ async function startChat(flags: ChatFlags, resumeId?: string): Promise<void> {
   if (resolvedResume) {
     const full =
       resolvedResume === "latest"
-        ? store.latestSessionId()
+        ? store.latestSessionId(process.cwd())
         : resolveSessionId(store, resolvedResume);
     if (!full) {
       console.error(
         c.red(
           resolvedResume === "latest"
-            ? "no sessions to resume"
+            ? "no sessions to resume in this project"
             : `no session matching "${resolvedResume}"`,
         ),
       );
