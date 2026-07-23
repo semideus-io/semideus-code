@@ -51,7 +51,8 @@ commands (TUI):
   /mode              switch default|explain
   /permissions       show the live permission policy ("reset" revokes session grants)
   /help              commands
-  /exit              leave (ctrl+c works too)`;
+  /exit              leave (ctrl+c works too)
+  esc                interrupt the running turn (progress is kept)`;
 
 async function main(): Promise<void> {
   const { values, positionals } = parseArgs({
@@ -140,7 +141,19 @@ async function startChat(flags: ChatFlags, resumeId?: string): Promise<void> {
     const rl = process.stdin.isTTY
       ? createInterface({ input: process.stdin, output: process.stdout })
       : null;
-    const gate = new PermissionGate(policy, rl ? approvalPrompter(rl) : undefined);
+    // ctrl+c interrupts the turn (state persists via the loop); a second one force-quits.
+    const controller = new AbortController();
+    const onSigint = () => {
+      if (controller.signal.aborted) process.exit(130);
+      console.error(c.dim("\ninterrupting — ctrl+c again to force quit"));
+      controller.abort();
+    };
+    process.on("SIGINT", onSigint);
+    rl?.on("SIGINT", onSigint); // readline swallows ctrl+c while a question is pending
+    const gate = new PermissionGate(
+      policy,
+      rl ? approvalPrompter(rl, controller.signal) : undefined,
+    );
     const opened = openSession(store, resolvedResume, {
       model: spec,
       registry,
@@ -156,11 +169,12 @@ async function startChat(flags: ChatFlags, resumeId?: string): Promise<void> {
     }
     if (opened.resumedLine) console.log(c.dim(opened.resumedLine));
     try {
-      await runTurn(opened.session, flags.prompt);
+      await runTurn(opened.session, flags.prompt, { signal: controller.signal });
     } catch (err) {
       console.error(c.red(`turn failed: ${err instanceof Error ? err.message : String(err)}`));
       process.exitCode = 1;
     }
+    process.off("SIGINT", onSigint);
     rl?.close();
     return;
   }
@@ -191,12 +205,20 @@ async function startChat(flags: ChatFlags, resumeId?: string): Promise<void> {
   const { session } = opened;
 
   const commandState: CommandState = { whyDisclaimerShown: false };
+  let turnController: AbortController | null = null;
   const handle: TuiHandle = {
     subscribe(sink) {
       sinks.add(sink);
       return () => sinks.delete(sink);
     },
-    submit: (text) => runTurn(session, text),
+    submit: (text) => {
+      const controller = new AbortController();
+      turnController = controller;
+      return runTurn(session, text, { signal: controller.signal }).finally(() => {
+        if (turnController === controller) turnController = null;
+      });
+    },
+    interrupt: () => turnController?.abort(),
     command: (line) => runCommand(session, line, commandState, HELP),
   };
 
@@ -262,7 +284,7 @@ async function safeRepoMap(cwd: string): Promise<string> {
 }
 
 /** Readline approvals for headless -p runs from a terminal; the diff still renders first. */
-function approvalPrompter(rl: Interface) {
+function approvalPrompter(rl: Interface, signal?: AbortSignal) {
   return async (req: ApprovalRequest): Promise<ApprovalDecision> => {
     console.log(c.magenta(`\n  ⟠ approve ${req.toolName} [${req.permission}]`));
     console.log(`    ${req.summary}`);
@@ -273,9 +295,16 @@ function approvalPrompter(rl: Interface) {
         console.log(`    ${i === 0 ? "$ " : "  "}${line}`);
       }
     }
-    const answer = (await rl.question(c.magenta("    [y]es / [a]lways this session / [N]o › ")))
-      .trim()
-      .toLowerCase();
+    let answer: string;
+    try {
+      answer = await rl.question(
+        c.magenta("    [y]es / [a]lways this session / [N]o › "),
+        signal ? { signal } : {},
+      );
+    } catch {
+      return "deny"; // interrupted while waiting — never an implicit yes
+    }
+    answer = answer.trim().toLowerCase();
     if (answer === "a" || answer === "always") return "allow-session";
     if (answer === "y" || answer === "yes") return "allow";
     return "deny";

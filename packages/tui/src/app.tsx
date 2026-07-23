@@ -26,6 +26,8 @@ export interface TuiHandle {
   subscribe(sink: EventSink): () => void;
   /** Run one agent turn. Resolves after turn-end. */
   submit(text: string): Promise<void>;
+  /** Interrupt the running turn, if any. The turn still ends via submit's resolve. */
+  interrupt(): void;
   /** Execute a slash command, returning transcript lines (may be ANSI-colored). */
   command(line: string): Promise<CommandResult>;
 }
@@ -142,7 +144,11 @@ export function App({ handle, approvals, banner, model, sessionId, initialItems 
       }
       return;
     }
-    if (running) return;
+    if (running) {
+      // The one live control while a turn runs — everything else stays ignored.
+      if (key.escape) handle.interrupt();
+      return;
+    }
     if (key.backspace || key.delete) {
       setBuffer(inputRef.current.slice(0, -1));
       return;
@@ -172,7 +178,7 @@ export function App({ handle, approvals, banner, model, sessionId, initialItems 
           {live ? <Text dimColor>{live}</Text> : null}
           <Text>
             <Spinner />
-            <Text dimColor> working…</Text>
+            <Text dimColor> working… · esc to interrupt</Text>
           </Text>
         </Box>
       ) : null}

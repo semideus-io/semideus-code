@@ -34,7 +34,9 @@ cost_out = 5.0
 # provider  = "openai-compatible"
 # base_url  = "http://localhost:11434/v1"
 # model     = "qwen3-coder:30b"
-# tool_mode = "native"   # json-fallback / xml-repair tiers land in phase 1
+# tool_mode = "native"         # or json-fallback / xml-repair for models without native tools
+# include_usage = true         # default; stream token usage so /cost and context warnings work.
+#                              # Set false for compat servers that reject stream_options.
 
 [permissions]
 read    = "allow"

@@ -181,12 +181,13 @@ export class Session {
     this.store.saveSnapshot(this.id, step, absPath, existed, content);
   }
 
-  toolContext(step: number): ToolContext {
+  toolContext(step: number, signal?: AbortSignal): ToolContext {
     return {
       cwd: this.cwd,
       sessionId: this.id,
       step,
       snapshot: (absPath: string) => this.snapshot(absPath, step),
+      signal,
     };
   }
 

@@ -9,6 +9,8 @@ export function buildModelSpec(
   id: string,
   models: Record<string, ModelConfig>,
   env: Record<string, string | undefined> = process.env,
+  /** Test seam: wire-format tests capture the request without a live endpoint. */
+  fetchImpl?: typeof fetch,
 ): ModelSpec {
   const cfg = models[id];
   if (!cfg) {
@@ -25,7 +27,7 @@ export function buildModelSpec(
         `model "${id}" (${cfg.model}) needs ${envName} — export it or set api_key_env in ~/.config/demi/config.toml`,
       );
     }
-    const anthropic = createAnthropic({ apiKey });
+    const anthropic = createAnthropic({ apiKey, fetch: fetchImpl });
     const base = anthropic(cfg.model);
     const model = cfg.prompt_cache
       ? wrapLanguageModel({ model: base, middleware: anthropicPromptCache() })
@@ -42,6 +44,8 @@ export function buildModelSpec(
     name: id,
     baseURL: cfg.base_url,
     apiKey: apiKey ?? "not-needed",
+    includeUsage: cfg.include_usage,
+    fetch: fetchImpl,
   });
   return toSpec(id, cfg, provider(cfg.model));
 }

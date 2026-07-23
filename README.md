@@ -56,6 +56,7 @@ Typed at the `you ›` prompt, always prefixed with `/`:
 | `/permissions [reset]` | show the live permission policy per class; `reset` revokes "always this session" grants |
 | `/session` | print the current session id and title |
 | `/exit`, `/quit` | leave (also `ctrl-c`) |
+| `esc` | interrupt the running turn — partial progress stays in the transcript and session (headless: `ctrl-c` once) |
 
 Anything not starting with `/` is sent to the agent as a task. When a tool call needs a permission the policy doesn't already grant, the approval overlay shows **the change itself** — the unified diff for file edits, the full command for bash — before the `[y]es / [a]lways this session / [N]o` choice (Enter/Esc = no). That gate cannot be bypassed by the model.
 

@@ -12,6 +12,10 @@ export const modelConfigSchema = z.object({
   cost_in: z.number().nonnegative().default(0),
   cost_out: z.number().nonnegative().default(0),
   prompt_cache: z.boolean().default(true),
+  // openai-compatible only: ask the endpoint to report token usage on streams
+  // (stream_options.include_usage) — /cost and context warnings are blind
+  // without it. Off-switch for compat servers that reject the field.
+  include_usage: z.boolean().default(true),
 });
 
 export type ModelConfig = z.infer<typeof modelConfigSchema>;
@@ -51,6 +55,7 @@ export const BUILTIN_MODELS: Record<string, ModelConfig> = {
     cost_in: 3,
     cost_out: 15,
     prompt_cache: true,
+    include_usage: true,
   },
   cheap: {
     provider: "anthropic",
@@ -60,6 +65,7 @@ export const BUILTIN_MODELS: Record<string, ModelConfig> = {
     cost_in: 1,
     cost_out: 5,
     prompt_cache: true,
+    include_usage: true,
   },
 };
 

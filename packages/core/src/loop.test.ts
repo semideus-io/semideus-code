@@ -5,6 +5,14 @@ import { runTurn } from "./loop";
 import type { ApprovalRequest } from "./permissions";
 import { echoTool, type MockResponse, makeSession } from "./test-kit";
 
+async function until(cond: () => boolean, timeoutMs = 1_000): Promise<void> {
+  const start = Date.now();
+  while (!cond()) {
+    if (Date.now() - start > timeoutMs) throw new Error("condition not met in time");
+    await new Promise((resolve) => setTimeout(resolve, 5));
+  }
+}
+
 const toolCallThenDone: MockResponse[] = [
   {
     content: [
@@ -172,6 +180,110 @@ describe("runTurn", () => {
     expect(session.usage.inputTokens).toBe(0);
     expect(session.messages.map((m) => m.role)).toEqual(["user"]);
     expect(events.some((e) => e.type === "notice")).toBe(true);
+    expect(events.at(-1)?.type).toBe("turn-end");
+  });
+
+  test("abort mid-stream keeps the partial text and ends the turn cleanly", async () => {
+    const events: AgentEvent[] = [];
+    const controller = new AbortController();
+    const session = makeSession({
+      responses: [
+        { content: [{ type: "text", text: "half an answer" }], finishReason: "stop", hang: true },
+      ],
+      events,
+    });
+
+    const turn = runTurn(session, "hi", { signal: controller.signal });
+    await until(() => events.some((e) => e.type === "assistant-delta"));
+    controller.abort();
+    await turn;
+
+    // partial text lands in history and transcript as narration, never as a conclusion
+    expect(session.messages.map((m) => m.role)).toEqual(["user", "assistant"]);
+    const texts = events.flatMap((e) => (e.type === "assistant-text" ? [e] : []));
+    expect(texts).toHaveLength(1);
+    expect(texts[0]?.final).toBe(false);
+    expect(texts[0]?.text).toBe("half an answer");
+
+    // the aborted step tracks no usage, logs no decision, but persists and closes the turn
+    expect(session.usage.inputTokens).toBe(0);
+    expect(session.decisions()).toHaveLength(0);
+    const notice = events.find((e) => e.type === "notice");
+    expect(notice?.type === "notice" && notice.text).toContain("interrupted");
+    expect(events.at(-1)?.type).toBe("turn-end");
+    expect(session.store.loadSession(session.id)?.messages).toHaveLength(2);
+  });
+
+  test("abort during a tool batch answers unrun calls and skips the next model call", async () => {
+    const events: AgentEvent[] = [];
+    const prompts: unknown[] = [];
+    const controller = new AbortController();
+    // the first call aborts the turn mid-run; the second call must never execute
+    let runs = 0;
+    const tool: Tool = {
+      ...echoTool(),
+      run: async () => {
+        runs++;
+        controller.abort();
+        return { ok: true, output: "echo: hi" };
+      },
+    };
+    const session = makeSession({
+      responses: [
+        {
+          content: [
+            { type: "text", text: "Two echoes coming." },
+            {
+              type: "tool-call",
+              toolCallId: "call-1",
+              toolName: "echo",
+              input: JSON.stringify({ message: "one" }),
+            },
+            {
+              type: "tool-call",
+              toolCallId: "call-2",
+              toolName: "echo",
+              input: JSON.stringify({ message: "two" }),
+            },
+          ],
+          finishReason: "tool-calls",
+        },
+        { content: [{ type: "text", text: "never sent" }], finishReason: "stop" },
+      ],
+      tool,
+      events,
+      prompts,
+    });
+
+    await runTurn(session, "echo twice", { signal: controller.signal });
+
+    expect(runs).toBe(1);
+    expect(prompts).toHaveLength(1);
+    // both calls carry a result so the stored history stays provider-valid
+    const toolMessage = session.messages.find((m) => m.role === "tool");
+    const parts = toolMessage?.content as Array<{ toolCallId: string; output: { type: string } }>;
+    expect(parts.map((p) => p.toolCallId)).toEqual(["call-1", "call-2"]);
+    expect(parts[0]?.output.type).toBe("text");
+    expect(parts[1]?.output.type).toBe("execution-denied");
+    // only the executed call reaches the decision log; no conclusion is logged
+    expect(session.decisions().map((d) => d.kind)).toEqual(["tool_call"]);
+    const notice = events.find((e) => e.type === "notice");
+    expect(notice?.type === "notice" && notice.text).toContain("interrupted");
+  });
+
+  test("an already-aborted signal ends the turn before any model call", async () => {
+    const events: AgentEvent[] = [];
+    const prompts: unknown[] = [];
+    const controller = new AbortController();
+    controller.abort();
+    const session = makeSession({ responses: toolCallThenDone, events, prompts });
+
+    await runTurn(session, "hi", { signal: controller.signal });
+
+    expect(prompts).toHaveLength(0);
+    expect(session.messages.map((m) => m.role)).toEqual(["user"]);
+    const notice = events.find((e) => e.type === "notice");
+    expect(notice?.type === "notice" && notice.text).toContain("interrupted");
     expect(events.at(-1)?.type).toBe("turn-end");
   });
 

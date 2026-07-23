@@ -112,6 +112,7 @@ The rule from the plan, operationalized: **you must be dogfooding phase N daily 
 - [x] Repo map: `web-tree-sitter` + personalized PageRank, ~1k-token budget, cached in `.demi/cache/` *(landed 2026-07-17 — ADR-0005; 70 files, 90ms cold / 2ms warm, ~986 tok on this repo; live-checked: cheap model names gate/event files from the map, zero tool calls)*
 - [x] Tool-mode fallback tiers (`json-fallback`, `xml-repair`) proven against one local model *(landed 2026-07-17 — protocol in the prompt, same executeCall/gate as native; json tier proven live on qwen2.5-coder:1.5b via Ollama, grounded answers from real tool runs; xml tier integration-tested, live proof waits on an XML-native model — ledger)*
 - [x] Session picker for `resume`, context warnings at ~70% window *(landed 2026-07-17 — `resume --pick`, full transcript replay from stored messages, warn-once notice at 70% of the model window; PTY-verified)*
+- [x] Esc interrupts the running turn; ctrl+c does the same headless *(landed 2026-07-18 — ADR-0006; AbortSignal through loop + ToolContext, partial text kept, unrun batch calls answered so stored history stays provider-valid, bash killed on abort; local usage mapping landed alongside so /cost and the 70% warning work on Ollama runs)*
 - [ ] **Exit criterion**: demi is your default agent for this repo; a week of DOGFOOD.md entries
 
 ### Phase 2 — The moat (weeks 5–8)
@@ -140,11 +141,10 @@ Anything that changes architecture, a dependency choice, or the product contract
 
 | Gap | Why deferred | Lands |
 |---|---|---|
-| No way to interrupt a running turn (esc) | needs AbortSignal plumbing through the loop; input is simply ignored while running | phase 1 |
 | TUI input is append-only — no cursor keys, no history | hand-rolled input stays minimal until dogfood says what's actually missed | when it hurts |
 | Repo map ranks uniformly at session start — no per-prompt personalization | needs a provider hook through core; uniform rank is already useful | when it hurts |
 | `xml-repair` proven by tests, not live | qwen2.5-coder:1.5b won't emit XML (JSON-native); needs an XML-friendly local model on the bench | when one lands |
-| Local (openai-compatible) runs report 0 tokens — /cost reads $0 | Ollama's compat endpoint usage isn't mapped through; cost is $0 locally anyway, but step counts belong in /cost | phase 2 |
+| An interrupted step tracks no usage — /cost undercounts aborted turns | the provider reports nothing for a cut stream; unknowable client-side (ADR-0006) | accepted |
 | `bash` snapshots nothing | can't know what a command touches; shadow-git checkpoints are the real answer | phase 3 |
 | Messages stored as one JSON blob per session | fine at this scale; revisit if sessions grow or sync lands | when it hurts |
 | Costs in config are estimates | pricing changes; config comments say so | ongoing |

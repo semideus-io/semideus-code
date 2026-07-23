@@ -38,6 +38,11 @@ export type MockResponse = {
   finishReason: "stop" | "tool-calls";
   /** Emit an error part after the content instead of finishing the stream. */
   streamError?: string;
+  /**
+   * Emit the content, then keep the stream open until the call's abortSignal
+   * fires, then fail it like an aborted fetch does. For interrupt tests.
+   */
+  hang?: boolean;
 };
 
 export type MockUsage = { total: number; cacheRead?: number; cacheWrite?: number };
@@ -62,8 +67,8 @@ export function streamParts(res: MockResponse | undefined, usage?: MockUsage): S
       parts.push(piece);
     }
   }
-  if (res?.streamError) {
-    parts.push({ type: "error", error: new Error(res.streamError) });
+  if (res?.streamError || res?.hang) {
+    if (res.streamError) parts.push({ type: "error", error: new Error(res.streamError) });
     return parts;
   }
   parts.push({
@@ -103,6 +108,13 @@ export function makeSession(opts: {
         stream: new ReadableStream({
           start(controller) {
             for (const part of parts) controller.enqueue(part);
+            if (res?.hang) {
+              // Stay open; fail like an aborted fetch when the signal fires.
+              const fail = () => controller.error(new DOMException("aborted", "AbortError"));
+              if (options.abortSignal?.aborted) fail();
+              else options.abortSignal?.addEventListener("abort", fail, { once: true });
+              return;
+            }
             controller.close();
           },
         }),

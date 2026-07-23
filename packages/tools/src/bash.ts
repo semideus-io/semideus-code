@@ -34,6 +34,13 @@ export const bashTool: Tool<typeof schema> = {
     return { command: input.command };
   },
   async run(input, ctx) {
+    if (ctx.signal?.aborted) {
+      return {
+        ok: false,
+        output: "not run — turn interrupted",
+        artifacts: { command: input.command },
+      };
+    }
     const timeout = input.timeout_ms ?? DEFAULT_TIMEOUT_MS;
     const proc = Bun.spawn(["bash", "-c", input.command], {
       cwd: ctx.cwd,
@@ -48,6 +55,12 @@ export const bashTool: Tool<typeof schema> = {
       timedOut = true;
       proc.kill();
     }, timeout);
+    let interrupted = false;
+    const onAbort = () => {
+      interrupted = true;
+      proc.kill();
+    };
+    ctx.signal?.addEventListener("abort", onAbort, { once: true });
 
     const [stdout, stderr, code] = await Promise.all([
       new Response(proc.stdout).text(),
@@ -55,15 +68,17 @@ export const bashTool: Tool<typeof schema> = {
       proc.exited,
     ]);
     clearTimeout(timer);
+    ctx.signal?.removeEventListener("abort", onAbort);
 
-    const sections = [`exit code: ${code}${timedOut ? ` (killed after ${timeout}ms)` : ""}`];
+    const killed = interrupted ? " (interrupted)" : timedOut ? ` (killed after ${timeout}ms)` : "";
+    const sections = [`exit code: ${code}${killed}`];
     if (stdout.trim())
       sections.push(`── stdout ──\n${truncateMiddle(stdout.trimEnd(), MAX_STREAM)}`);
     if (stderr.trim())
       sections.push(`── stderr ──\n${truncateMiddle(stderr.trimEnd(), MAX_STREAM)}`);
 
     return {
-      ok: code === 0 && !timedOut,
+      ok: code === 0 && !timedOut && !interrupted,
       output: sections.join("\n"),
       artifacts: { command: input.command },
     };

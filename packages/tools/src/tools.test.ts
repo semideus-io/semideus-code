@@ -105,4 +105,23 @@ describe("bash", () => {
     expect(res.ok).toBe(true);
     expect(res.output).toContain(dir.split("/").at(-1) as string);
   });
+
+  test("an abort mid-run kills the process promptly", async () => {
+    const controller = new AbortController();
+    const start = Date.now();
+    setTimeout(() => controller.abort(), 100);
+    const res = await bashTool.run({ command: "sleep 30" }, { ...ctx, signal: controller.signal });
+    expect(Date.now() - start).toBeLessThan(5_000);
+    expect(res.ok).toBe(false);
+    expect(res.output).toContain("(interrupted)");
+  }, 10_000);
+
+  test("an already-aborted signal skips the spawn entirely", async () => {
+    const controller = new AbortController();
+    controller.abort();
+    const res = await bashTool.run({ command: "echo ran" }, { ...ctx, signal: controller.signal });
+    expect(res.ok).toBe(false);
+    expect(res.output).toBe("not run — turn interrupted");
+    expect(res.output).not.toContain("ran");
+  });
 });

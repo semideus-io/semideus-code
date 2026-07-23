@@ -21,6 +21,11 @@ export interface ToolContext {
   step: number;
   /** Mutating tools MUST call this before touching the file. Backs /undo. */
   snapshot(absPath: string): Promise<void>;
+  /**
+   * Fires when the user interrupts the turn. Long-running tools (bash) should
+   * stop work and return an ok:false result promptly; fast tools may ignore it.
+   */
+  signal?: AbortSignal;
 }
 
 export interface Tool<S extends z.ZodType = z.ZodType> {
