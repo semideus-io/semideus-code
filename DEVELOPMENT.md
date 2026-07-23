@@ -156,6 +156,7 @@ Anything that changes architecture, a dependency choice, or the product contract
 | TUI input is append-only — no cursor keys, no history | hand-rolled input stays minimal until dogfood says what's actually missed | when it hurts |
 | Repo map ranks uniformly at session start — no per-prompt personalization | needs a provider hook through core; uniform rank is already useful | when it hurts |
 | `xml-repair` proven by tests, not live | qwen2.5-coder:1.5b won't emit XML (JSON-native); needs an XML-friendly local model on the bench | when one lands |
+| `qwen3-coder:30b` on `native` intermittently leaks its tool call as prose | Observed 2026-07-23: identical prompt produced a real native call on one run and a raw `<function=bash>…` text block on the next. Ollama's template, not our loop — but on `native` the leaked call silently does nothing and the turn "concludes" having acted on nothing. The repair machinery already exists (`xml-repair`); what's missing is detecting a leaked call in `native` mode | next local-model pass |
 | An interrupted step tracks no usage — /cost undercounts aborted turns | the provider reports nothing for a cut stream; unknowable client-side (ADR-0006) | accepted |
 | `bash` snapshots nothing | can't know what a command touches; shadow-git checkpoints are the real answer | phase 3 |
 | Messages stored as one JSON blob per session | fine at this scale; revisit if sessions grow or sync lands | when it hurts |
