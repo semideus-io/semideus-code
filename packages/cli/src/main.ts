@@ -19,6 +19,7 @@ import { buildModelSpec, ConfigError, mergedModels } from "@semideus/providers";
 import { buildRepoMap } from "@semideus/repomap";
 import { builtinTools } from "@semideus/tools";
 import { ApprovalBridge, replayItems, runTui, type TuiHandle } from "@semideus/tui";
+import pkg from "../package.json" with { type: "json" };
 import { c } from "./colors";
 import { type CommandState, runCommand } from "./commands";
 import { loadConfig } from "./config";
@@ -26,7 +27,8 @@ import { resolveModelId } from "./model-choice";
 import { printDiff, printEvent } from "./print";
 import { formatSessionLine, pickSessionId } from "./session-picker";
 
-const VERSION = "0.0.1";
+// Single source of truth: the package version, inlined at bundle time (ADR-0010).
+const VERSION: string = pkg.version;
 
 const HELP = `daimon — Semideus Code (phase 1)
 

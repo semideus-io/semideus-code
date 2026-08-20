@@ -8,6 +8,8 @@
   ],
   "scripts": {
     "daimon": "bun packages/cli/src/main.ts",
+    "build": "bun scripts/build.ts",
+    "build:npm": "bun scripts/build-npm.ts",
     "typecheck": "tsc --noEmit",
     "check": "biome check .",
     "check:fix": "biome check --write .",
