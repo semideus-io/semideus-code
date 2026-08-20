@@ -1,6 +1,6 @@
 # STATUS.md — where Semideus Code actually is
 
-Plain-language snapshot, last checked **2026-07-23**. The *what and why* lives in
+Plain-language snapshot, last checked **2026-08-20**. The *what and why* lives in
 [PLAN.md](PLAN.md); the *how we work* lives in [../DEVELOPMENT.md](../DEVELOPMENT.md);
 this file answers "if I sat down right now, what do I have?"
 
@@ -34,9 +34,10 @@ in phase 1 is not code — it's proof: a week of actually using it daily.
 | **Cost tracking** | Token + $ per turn and per session, with Anthropic prompt caching wired in (reads priced at 0.1×) |
 | **Context warning** | Warn-once notice at 70% of the model's window |
 | **Commands** | `/why` `/cost` `/undo` `/mode` `/session` `/permissions` `/help` `/exit` — one implementation, both renderers |
+| **Packaging** | `bun run build` → 4 self-contained binaries (wasm embedded, no node_modules at runtime) + SHA256SUMS; `bun run build:npm` → checksum-pinned `@semideus/code` wrapper. Apache-2.0, ADR-0010. Proven live 2026-08-20 |
 
-**Health check right now:** 162 tests pass across 23 files, `tsc --noEmit` clean,
-~6,700 lines of source across 7 packages.
+**Health check right now:** 194 tests pass across 27 files, `tsc --noEmit` clean,
+~7,000 lines of source across 7 packages.
 
 ## 3. Phase 1 is closed
 
@@ -61,7 +62,9 @@ Everything in phase 2 (the moat) and phase 3 (hardening):
 - **No recall** — no SM-2 scheduler, no `daimon review`
 - **No MCP client** — no Semideus Learn bridge, no knowledge cards, no teach-back gate
 - **No `/onboard`** / `FOR-YOU.md`
-- **No compaction, shadow-git checkpoints, subagents, eval harness, or binaries**
+- **No compaction, shadow-git checkpoints, subagents, or eval harness** (binaries
+  landed 2026-08-20 — [briefs/packaging.md](briefs/packaging.md) is done; publishing
+  itself is [briefs/release-pipeline.md](briefs/release-pipeline.md), still open)
 
 In short: **the coding agent is real; the learning layer — the actual moat — is not
 started.**

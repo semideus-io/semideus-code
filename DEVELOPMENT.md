@@ -163,3 +163,4 @@ Anything that changes architecture, a dependency choice, or the product contract
 | Costs in config are estimates | pricing changes; config comments say so | ongoing |
 | ~~No LICENSE yet~~ | Apache-2.0 landed 2026-08-20 with ADR-0010 (distribution shape) | closed |
 | Release binaries unsigned | macOS notarization / Windows signing deferred; browser downloads will trip Gatekeeper — npm postinstall and curl mostly dodge it (ADR-0010) | when users hit it |
+| linux-x64 binary built but not run | Bun x64 binaries spin under Rosetta-for-Linux on Apple silicon (observed 2026-08-20: 28 min at 99% CPU on `--version`) — emulation can't prove it either way; the release pipeline's per-OS check job on a real ubuntu runner is the proof | release-pipeline step 2 |

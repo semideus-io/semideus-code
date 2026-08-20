@@ -111,8 +111,10 @@ smoke` green from the binary.
   second version string exists anywhere in the source tree.
 - The wrapper installs via `npm install -g` from a local tarball + local binary server,
   and the tampered-checksum test proves a corrupted download can never install.
-- All four target binaries build from one `bun run build` on macOS; linux-x64
-  additionally proven by running it in a Linux container.
+- All four target binaries build from one `bun run build` on macOS. (linux-x64
+  runtime proof moved to the release pipeline's ubuntu check job — Bun x64 binaries
+  spin under Rosetta-for-Linux emulation on Apple silicon, so a container on the dev
+  Mac can't prove it either way; ledgered in DEVELOPMENT.md §10.)
 - LICENSE exists, ADR-0010 merged, the honesty-ledger LICENSE row closed.
 
 ## Out of scope (v1)
