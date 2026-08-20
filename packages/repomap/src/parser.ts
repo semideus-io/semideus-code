@@ -1,4 +1,19 @@
+import tsxWasm from "tree-sitter-wasms/out/tree-sitter-tsx.wasm" with { type: "file" };
+import typescriptWasm from "tree-sitter-wasms/out/tree-sitter-typescript.wasm" with {
+  type: "file",
+};
 import { Language, Parser } from "web-tree-sitter";
+import runtimeWasm from "web-tree-sitter/tree-sitter.wasm" with { type: "file" };
+
+/**
+ * All three wasm files travel as file imports so `bun build --compile` embeds
+ * them: the same import is a node_modules path in source runs and an embedded
+ * asset in a compiled binary — no runtime dependence on node_modules (ADR-0010).
+ */
+const WASM_BY_GRAMMAR: Record<"typescript" | "tsx", string> = {
+  typescript: typescriptWasm,
+  tsx: tsxWasm,
+};
 
 /**
  * Grammar per extension: the typescript grammar covers plain JS too; JSX needs
@@ -29,11 +44,10 @@ async function loadLanguage(grammar: "typescript" | "tsx"): Promise<Language> {
   const cached = languages.get(grammar);
   if (cached) return cached;
   if (!initialized) {
-    await Parser.init();
+    await Parser.init({ locateFile: () => runtimeWasm });
     initialized = true;
   }
-  const url = import.meta.resolve(`tree-sitter-wasms/out/tree-sitter-${grammar}.wasm`);
-  const bytes = new Uint8Array(await Bun.file(new URL(url)).arrayBuffer());
+  const bytes = new Uint8Array(await Bun.file(WASM_BY_GRAMMAR[grammar]).arrayBuffer());
   const language = await Language.load(bytes);
   languages.set(grammar, language);
   return language;
