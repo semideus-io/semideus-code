@@ -161,4 +161,5 @@ Anything that changes architecture, a dependency choice, or the product contract
 | `bash` snapshots nothing | can't know what a command touches; shadow-git checkpoints are the real answer | phase 3 |
 | Messages stored as one JSON blob per session | fine at this scale; revisit if sessions grow or sync lands | when it hurts |
 | Costs in config are estimates | pricing changes; config comments say so | ongoing |
-| No LICENSE yet | decide before publishing `@semideus/code` | phase 3 |
+| ~~No LICENSE yet~~ | Apache-2.0 landed 2026-08-20 with ADR-0010 (distribution shape) | closed |
+| Release binaries unsigned | macOS notarization / Windows signing deferred; browser downloads will trip Gatekeeper — npm postinstall and curl mostly dodge it (ADR-0010) | when users hit it |

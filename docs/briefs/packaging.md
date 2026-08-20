@@ -45,11 +45,13 @@ decided *before* publishing.
   server, which stays closed. Apache-2.0 over MIT for the explicit patent grant — the
   standard choice for dev tools (Aider, Codex CLI). Giannis countersigns this in
   ADR-0010; if he overrides, only the LICENSE file and ADR text change, nothing here.
-- **Grammars are embedded at compile time.** The two `.wasm` files are imported with
-  Bun's `with { type: "file" }` loader so `bun build --compile` embeds them in the
-  binary. `parser.ts` tries the embedded asset first and falls back to
-  `import.meta.resolve` for source runs — one loader, two paths, chosen at runtime,
-  behind the existing module boundary. `ts-wasms` types still never leak past it.
+- **Grammars are embedded at compile time.** *Three* `.wasm` files, not two — the
+  web-tree-sitter *runtime* (`tree-sitter.wasm`, loaded by `Parser.init()`) resolves
+  from `node_modules` just like the two grammars do (found in implementation; the
+  original brief missed it). All three are imported with Bun's `with { type: "file" }`
+  loader so `bun build --compile` embeds them; the same imports resolve to real file
+  paths in source runs — one code path for both worlds, behind the existing module
+  boundary. Tree-sitter types still never leak past `parser.ts`.
 - **Version has one source of truth: `packages/cli/package.json`.** The hardcoded
   `const VERSION = "0.0.1"` in `main.ts:29` becomes a build-time `--define` injection
   (source runs read package.json directly). The binary, the wrapper, and `daimon
