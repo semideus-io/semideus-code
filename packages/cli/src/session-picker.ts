@@ -1,7 +1,7 @@
 import { createInterface } from "node:readline/promises";
 import type { SessionMeta, SessionStore } from "@semideus/core";
 
-/** One line of the picker list — shared with `demi sessions`' plain listing. */
+/** One line of the picker list — shared with `daimon sessions`' plain listing. */
 export function formatSessionLine(s: SessionMeta): string {
   const when = new Date(s.updatedAt).toISOString().slice(0, 16).replace("T", " ");
   return `${s.id.slice(0, 8)}  ${when}  [${s.model}]  ${s.title}`;
@@ -22,7 +22,7 @@ export function resolvePick(answer: string, sessions: SessionMeta[]): string | n
   return sessions.find((s) => s.id.startsWith(trimmed))?.id ?? null;
 }
 
-/** Interactive `demi resume --pick`: list sessions, prompt, resolve to an id. */
+/** Interactive `daimon resume --pick`: list sessions, prompt, resolve to an id. */
 export async function pickSessionId(
   store: SessionStore,
   /** Scope to one project; omit to offer every session in the database. */
@@ -32,8 +32,8 @@ export async function pickSessionId(
   if (sessions.length === 0) {
     console.log(
       cwd
-        ? "no sessions for this project yet — run `demi` to start one"
-        : "no sessions yet — run `demi` to start one",
+        ? "no sessions for this project yet — run `daimon` to start one"
+        : "no sessions yet — run `daimon` to start one",
     );
     return null;
   }

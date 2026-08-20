@@ -1,6 +1,6 @@
 # Semideus Code — Getting Started
 
-**Product:** Semideus Code, the third member of the Semideus family — Train / Learn / **Code**: body, knowledge, craft. **Command:** `demi` — the *semi* half of *semideus*: you are one half, `demi` brings the other. **Persona:** Daimon — the flame from Semideus Learn, now the voice in your terminal; in the lineage of Socrates' daimonion, it advises, warns, and teaches, but never acts in your place. **Package:** `@semideus/code`.
+**Product:** Semideus Code, the third member of the Semideus family — Train / Learn / **Code**: body, knowledge, craft. **Command:** `daimon` — the *semi* half of *semideus*: you are one half, `daimon` brings the other. **Persona:** Daimon — the flame from Semideus Learn, now the voice in your terminal; in the lineage of Socrates' daimonion, it advises, warns, and teaches, but never acts in your place. **Package:** `@semideus/code`.
 
 ---
 
@@ -19,10 +19,10 @@ Build the whole tool in **TypeScript, running on Bun**, with **Ink** for the TUI
 | TUI | Ink (React for terminals) | OpenTUI if Ink's frame cap ever bites |
 | Model layer | Vercel AI SDK behind a custom `Provider` interface | Hand-rolled adapters if the SDK constrains you |
 | Local models | Ollama / LM Studio / vLLM via OpenAI-compatible endpoints | Tool-call fallback tiers (JSON mode → XML+repair) |
-| Schemas & config | Zod + TOML (`~/.config/demi/config.toml`) | — |
+| Schemas & config | Zod + TOML (`~/.config/daimon/config.toml`) | — |
 | Storage | `bun:sqlite` (sessions, decisions, concepts) | libsql if you ever want sync |
 | Repo map | `web-tree-sitter` (WASM) + PageRank | Embeddings-based search later |
-| Extensibility | MCP client (`@modelcontextprotocol/sdk`) | Expose demi itself as an MCP server later |
+| Extensibility | MCP client (`@modelcontextprotocol/sdk`) | Expose daimon itself as an MCP server later |
 | Process/exec | `Bun.spawn` / `execa`, `rg` for search | — |
 | Lint/format/test | Biome + `bun test` | vitest if you outgrow it |
 | Distribution | `bun build --compile` per-platform binaries + thin npm wrapper | — |
@@ -45,7 +45,7 @@ Build the whole tool in **TypeScript, running on Bun**, with **Ink** for the TUI
 
 The security-agent space is crowded and heavily funded (XBOW, RunSybil, Big Sleep, a dozen startups per quarter). The learning space is nearly empty: every major tool optimizes for *the human doing less*, and the deskilling anxiety is real, measurable, and growing. Nobody has shipped a coding agent whose core promise is *you will understand your codebase better after using this than before*.
 
-Your structural advantage: **you already own a spaced-repetition, teach-back, wiki-graph backend with an MCP server.** The moat is not "explanations in the terminal" — anyone can prompt for that. The moat is the **closed learning loop**: concepts encountered while coding → captured → scheduled for review → tested via teach-back → measured over weeks. That requires learning infrastructure competitors would have to build from scratch. Design demi so the loop also works standalone (built-in SM-2 scheduler) but is *supercharged* when connected to Semideus Learn — that's both a moat and a distribution flywheel between your two products.
+Your structural advantage: **you already own a spaced-repetition, teach-back, wiki-graph backend with an MCP server.** The moat is not "explanations in the terminal" — anyone can prompt for that. The moat is the **closed learning loop**: concepts encountered while coding → captured → scheduled for review → tested via teach-back → measured over weeks. That requires learning infrastructure competitors would have to build from scratch. Design daimon so the loop also works standalone (built-in FSRS scheduler) but is *supercharged* when connected to Semideus Learn — that's both a moat and a distribution flywheel between your two products.
 
 The honest framing that will earn trust: models' stated rationales are not guaranteed faithful accounts of their computation (you know this literature better than anyone). So the learning layer never presents rationale as ground truth — every "why" is anchored to observable artifacts: the diff, the command, the test output. Explanations are the agent's account *of verifiable actions*, and comprehension is measured on the human, not asserted by the model. That epistemic honesty is itself a differentiator.
 
@@ -108,7 +108,7 @@ packages/
   cli/         entry point, config loading, headless mode
 ```
 
-The one publishable package is `packages/cli`, named `@semideus/code` and exposing `"bin": { "demi": "./dist/main.js" }`; the rest stay private workspace packages.
+The one publishable package is `packages/cli`, named `@semideus/code` and exposing `"bin": { "daimon": "./dist/main.js" }`; the rest stay private workspace packages.
 
 > API surfaces below are schematic and written against AI SDK v5-era APIs. Ink and the AI SDK move fast — verify exact names against current docs when you scaffold.
 
@@ -216,14 +216,14 @@ Rules that keep you sane: max-steps cap always on; every mutating tool (`write`,
 
 Ship exactly six, in this order: `read_file`, `glob`, `grep` (shell out to `rg`), `bash`, `write_file`, `edit_file`. The edit tool is the one worth craftsmanship — use string-replacement edits (old text must match uniquely) rather than line numbers, return a unified diff in `artifacts.diff`, and render it in the TUI for approval. This single tool determines half of how trustworthy the product feels.
 
-The repo map comes right after: parse with `web-tree-sitter` (WASM grammars, no native build pain in Bun), build a definition/reference graph, rank with personalized PageRank, render the top slice within a ~1k-token budget into the system prompt. This is Aider's proven design — it processes billions of tokens weekly on it — and it's the highest-leverage context feature you can build. Cache the graph in `.demi/cache/` keyed by file mtimes.
+The repo map comes right after: parse with `web-tree-sitter` (WASM grammars, no native build pain in Bun), build a definition/reference graph, rank with personalized PageRank, render the top slice within a ~1k-token budget into the system prompt. This is Aider's proven design — it processes billions of tokens weekly on it — and it's the highest-leverage context feature you can build. Cache the graph in `.daimon/cache/` keyed by file mtimes.
 
 ## 9. Providers: cloud + local, first-class both
 
 Config, not code:
 
 ```toml
-# ~/.config/demi/config.toml
+# ~/.config/daimon/config.toml
 [models.default]
 provider = "anthropic"
 model    = "claude-sonnet-4-6"
@@ -273,7 +273,7 @@ type Concept = {
 Stored in SQLite. On `/digest` or session end: "Today you touched: async generators (3×), Zod refinements (new), N+1 query pitfall (new)…" with jump-links to the code where each appeared. The examples being *from the user's own codebase* is what makes this pedagogically strong.
 
 ### 10.5 Recall loop — the Semideus bridge
-Built-in: a minimal SM-2 scheduler over the concept ledger; `demi review` runs a 3-minute terminal review of due concepts. Connected: when the Semideus Learn MCP server is configured, the digest offers "deposit to Semideus?" — concepts become knowledge cards via `create_knowledge_cards_tool`, and big merges can gate on a Feynman check via `submit_teach_back` (your server-side grading, not self-declared mastery). This closes the loop with infrastructure only you have: encode while coding, retrieve on schedule, consolidate through teach-back — the same encoding→retrieval→consolidation cycle you teach in computational neuroscience, which is exactly the "neural" in your neural coding agent.
+Built-in: an FSRS scheduler (via `ts-fsrs`, target retention 0.9) over the concept ledger; `daimon review` runs a 3-minute terminal review of due concepts. Connected: when the Semideus Learn MCP server is configured, the digest offers "deposit to Semideus?" — concepts become knowledge cards via `create_knowledge_cards_tool`, and big merges can gate on a Feynman check via `submit_teach_back` (your server-side grading, not self-declared mastery). This closes the loop with infrastructure only you have: encode while coding, retrieve on schedule, consolidate through teach-back — the same encoding→retrieval→consolidation cycle you teach in computational neuroscience, which is exactly the "neural" in your neural coding agent.
 
 ### 10.6 `/onboard` + comprehension telemetry
 `/onboard` walks a new codebase: repo map tour, architecture narrative, the five files that matter, generates `FOR-YOU.md`. Telemetry: store teach-back grades and review outcomes over time and chart them — *measured* understanding is your empirical answer to the deskilling debate (the famous METR slowdown result was later walked back by its own authors; the honest position is to measure, and you'll be one of the only tools that can).
@@ -284,7 +284,7 @@ Structure: a `Static` component for the finished transcript (Ink doesn't re-rend
 
 ## 12. Sessions, memory, checkpoints
 
-Sessions are SQLite rows (messages, events, concepts) in `~/.local/share/demi/`; `demi --resume` lists and restores. Project memory is a plain `AGENTS.md` at repo root (the emerging cross-tool standard — adopt it rather than inventing your own file). Checkpoints v1: before any mutating tool, copy touched files into the session store; `/undo` restores. Checkpoints v2 (phase 3): a shadow git repo (separate `GIT_DIR`, same worktree) committing every step — Cline-style time travel without polluting the user's history. Context compaction: when the window passes ~70%, summarize the oldest turns with `cheap`, keep the repo map and current task verbatim, and *re-inject `AGENTS.md` after every compaction* — the classic bug is losing project instructions mid-session.
+Sessions are SQLite rows (messages, events, concepts) in `~/.local/share/daimon/`; `daimon --resume` lists and restores. Project memory is a plain `AGENTS.md` at repo root (the emerging cross-tool standard — adopt it rather than inventing your own file). Checkpoints v1: before any mutating tool, copy touched files into the session store; `/undo` restores. Checkpoints v2 (phase 3): a shadow git repo (separate `GIT_DIR`, same worktree) committing every step — Cline-style time travel without polluting the user's history. Context compaction: when the window passes ~70%, summarize the oldest turns with `cheap`, keep the repo map and current task verbatim, and *re-inject `AGENTS.md` after every compaction* — the classic bug is losing project instructions mid-session.
 
 ## 13. Evals: prove the moat
 
@@ -293,24 +293,24 @@ Three tracks, small and owned by you. **Capability**: ~20 held-out terminal task
 ## 14. Distribution
 
 ```bash
-bun build --compile --target=bun-linux-x64  ./packages/cli/src/main.ts --outfile dist/demi-linux-x64
-bun build --compile --target=bun-darwin-arm64 ./packages/cli/src/main.ts --outfile dist/demi-darwin-arm64
+bun build --compile --target=bun-linux-x64  ./packages/cli/src/main.ts --outfile dist/daimon-linux-x64
+bun build --compile --target=bun-darwin-arm64 ./packages/cli/src/main.ts --outfile dist/daimon-darwin-arm64
 # + darwin-x64, windows-x64
 ```
 
-Publish `@semideus/code` — the thin npm package exposing the `demi` bin — whose postinstall fetches the right platform binary (the pattern Codex kept after its rewrite), plus a curl installer and a Homebrew tap when you're ready.
+Publish `@semideus/code` — the thin npm package exposing the `daimon` bin — whose postinstall fetches the right platform binary (the pattern Codex kept after its rewrite), plus a curl installer and a Homebrew tap when you're ready.
 
 ## 15. Roadmap
 
 | Phase | Weeks | Ships |
 |---|---|---|
-| 0 — Skeleton | 1 | Headless loop, 6 tools, permission gate, Anthropic + one local model, `demi -p "…"` one-shot + REPL |
+| 0 — Skeleton | 1 | Headless loop, 6 tools, permission gate, Anthropic + one local model, `daimon -p "…"` one-shot + REPL |
 | 1 — Daily driver | 2–4 | Ink TUI (streaming, diff approval), sessions + resume, repo map, cost tracking, `AGENTS.md`, checkpoints v1 |
 | 2 — The moat | 5–8 | Decision log + `/why`, plan-first, explain/mentor modes, concept ledger + digest, built-in recall, MCP client + Semideus bridge, `/onboard` |
 | 3 — Hardening | 9–12 | Compaction, shadow-git checkpoints, subagent task tool, headless CI mode, eval harness (all three tracks), compiled binaries + npm wrapper |
 | Later | — | Semideus Code as an MCP server, OpenTUI migration if needed, Rust hot-path if ever justified, team features |
 
-Gate each phase on dogfooding: you should be using phase N daily before starting N+1. Use demi to build Semideus Code itself from phase 1 onward — with a TS stack, that compounding is the whole point.
+Gate each phase on dogfooding: you should be using phase N daily before starting N+1. Use daimon to build Semideus Code itself from phase 1 onward — with a TS stack, that compounding is the whole point.
 
 ## 16. Pitfalls, honestly
 

@@ -1,11 +1,11 @@
-# AGENTS.md — Semideus Code (`demi`)
+# AGENTS.md — Semideus Code (`daimon`)
 
 Terminal coding agent. Bun + TypeScript monorepo. Persona: **Daimon** — advises and teaches, never acts without permission. The permission gate is the product contract, in code.
 
 ## Commands
 
 - `bun install` — install everything (workspaces)
-- `bun demi` — run the REPL from source · `bun demi -p "…"` — one-shot headless
+- `bun daimon` — run the REPL from source · `bun daimon -p "…"` — one-shot headless
 - `bun test` — run all tests (colocated `*.test.ts`)
 - `bun run typecheck` — `tsc --noEmit` over the whole monorepo
 - `bun run check:fix` — Biome lint + format, writing fixes

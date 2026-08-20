@@ -8,7 +8,7 @@ import { globTool } from "./glob";
 import { grepTool } from "./grep";
 import { readFileTool } from "./read-file";
 
-const dir = mkdtempSync(join(tmpdir(), "demi-tools-"));
+const dir = mkdtempSync(join(tmpdir(), "daimon-tools-"));
 const ctx: ToolContext = { cwd: dir, sessionId: "test", step: 1, snapshot: async () => {} };
 
 await Bun.write(join(dir, "src/alpha.ts"), "export const alpha = 1;\n");

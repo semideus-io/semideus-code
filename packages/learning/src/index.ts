@@ -2,7 +2,7 @@ import type { Concept, SessionStore } from "@semideus/core";
 
 /**
  * Phase 2 (the moat) builds on this: a `cheap`-model extraction pass over the
- * decision log + diffs feeds the ledger; SM-2 scheduling drives `demi review`;
+ * decision log + diffs feeds the ledger; FSRS scheduling drives `daimon review`;
  * the Semideus Learn MCP bridge turns digests into knowledge cards and gates
  * big merges on teach-back. See docs/PLAN.md §10.
  *

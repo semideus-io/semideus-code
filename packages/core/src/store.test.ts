@@ -66,7 +66,7 @@ describe("SessionStore", () => {
     expect(store.listSessions().map((s) => s.id)).toEqual(["a", "b"]);
     expect(store.countSessionsElsewhere("/repo/one")).toBe(1);
 
-    // `demi resume` with no id must not reach into another project's history,
+    // `daimon resume` with no id must not reach into another project's history,
     // even when that project's session is the most recent overall.
     expect(store.latestSessionId()).toBe("a");
     expect(store.latestSessionId("/repo/two")).toBe("b");
@@ -128,7 +128,7 @@ describe("SessionStore", () => {
   });
 
   test("a pre-artifact database is migrated, and its old rows still read", () => {
-    const path = `/tmp/demi-migrate-${process.pid}.sqlite`;
+    const path = `/tmp/daimon-migrate-${process.pid}.sqlite`;
     // Stand up the schema as it shipped before artifacts existed.
     const legacy = new Database(path);
     legacy.exec(`

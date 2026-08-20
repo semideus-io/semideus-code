@@ -4,4 +4,4 @@ coverage/
 *.log
 *.tsbuildinfo
 .DS_Store
-.demi/
+.daimon/

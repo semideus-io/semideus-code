@@ -28,14 +28,14 @@ import { formatSessionLine, pickSessionId } from "./session-picker";
 
 const VERSION = "0.0.1";
 
-const HELP = `demi — Semideus Code (phase 1)
+const HELP = `daimon — Semideus Code (phase 1)
 
 usage:
-  demi                       interactive TUI
-  demi -p "task"             one-shot headless run
-  demi sessions              list this project's sessions (--all for every project)
-  demi resume [id]           resume a session (latest if no id)
-  demi resume --pick         choose the session from a list
+  daimon                       interactive TUI
+  daimon -p "task"             one-shot headless run
+  daimon sessions              list this project's sessions (--all for every project)
+  daimon resume [id]           resume a session (latest if no id)
+  daimon resume --pick         choose the session from a list
 
 flags:
   -p, --prompt <text>        run one turn and exit
@@ -78,7 +78,7 @@ async function main(): Promise<void> {
     return;
   }
   if (values.version) {
-    console.log(`demi ${VERSION}`);
+    console.log(`daimon ${VERSION}`);
     return;
   }
 
@@ -93,7 +93,7 @@ async function main(): Promise<void> {
 }
 
 /**
- * Sessions for *this* project by default. demi runs in any repo but keeps one
+ * Sessions for *this* project by default. daimon runs in any repo but keeps one
  * database, so an unscoped list is mostly other projects' history.
  */
 function listSessions(all: boolean): void {
@@ -103,8 +103,8 @@ function listSessions(all: boolean): void {
   if (sessions.length === 0) {
     console.log(
       all
-        ? "no sessions yet — run `demi` to start one"
-        : "no sessions for this project yet — run `demi` to start one",
+        ? "no sessions yet — run `daimon` to start one"
+        : "no sessions for this project yet — run `daimon` to start one",
     );
   }
   for (const s of sessions) {
@@ -113,7 +113,7 @@ function listSessions(all: boolean): void {
   if (!all) {
     const elsewhere = store.countSessionsElsewhere(cwd);
     if (elsewhere > 0) {
-      console.log(c.dim(`  ${elsewhere} more in other projects — demi sessions --all`));
+      console.log(c.dim(`  ${elsewhere} more in other projects — daimon sessions --all`));
     }
   }
 }
@@ -283,7 +283,7 @@ async function startChat(flags: ChatFlags, resumeId?: string): Promise<void> {
   await runTui({
     handle,
     approvals: bridge,
-    banner: { headline: "⟠ demi — Semideus Code", lines: bannerLines },
+    banner: { headline: "⟠ daimon — Semideus Code", lines: bannerLines },
     model: spec.modelName,
     sessionId: session.id,
     // Resumed history rendered ahead of the live transcript; [] for fresh sessions.

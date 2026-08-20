@@ -8,7 +8,7 @@ import { writeFileTool } from "./write-file";
 const dirs: string[] = [];
 
 function ctx(): ToolContext {
-  const dir = mkdtempSync(join(tmpdir(), "demi-write-"));
+  const dir = mkdtempSync(join(tmpdir(), "daimon-write-"));
   dirs.push(dir);
   return { cwd: dir, sessionId: "test", step: 1, snapshot: async () => {} };
 }

@@ -11,7 +11,7 @@ These are the seven invariants. Everything else is negotiable per phase.
 3. **The permission gate is non-bypassable.** Every tool execution goes through `PermissionGate.check` — including your own dogfooding, including tests of the loop. `--yes` and "always this session" are policy values that flow *through* the gate; a code path around it is a bug by definition.
 4. **Mutating tools snapshot first.** Any tool that changes a file calls `ctx.snapshot(path)` before touching it. That is what makes `/undo` trustworthy and what checkpoints v2 will build on.
 5. **Rationale is never truth.** The model's stated why goes into `DecisionEvent.rationale`, always anchored to `refs` (files, commands, diffs). Any surface that shows rationale carries the disclaimer once per session. Never present rationale as introspection — it's the product's core epistemic promise.
-6. **Config, not code.** Models, permissions, and limits come from `~/.config/demi/config.toml` validated by Zod. Adding a model or a local endpoint must never require a code change.
+6. **Config, not code.** Models, permissions, and limits come from `~/.config/daimon/config.toml` validated by Zod. Adding a model or a local endpoint must never require a code change.
 7. **Stay on-distribution.** Models write most of this codebase. Small files, boring idioms, explicit types at boundaries, tool schemas with `.describe()` on every field. Cleverness costs more than it earns here.
 
 ## 2. Environment & daily commands
@@ -26,16 +26,16 @@ export ANTHROPIC_API_KEY=sk-ant-…
 
 | Command | What it does |
 |---|---|
-| `bun demi` | interactive TUI from source |
-| `bun demi -p "…"` | one-shot headless turn |
-| `bun demi sessions` / `resume [id]` | list / resume stored sessions |
+| `bun daimon` | interactive TUI from source |
+| `bun daimon -p "…"` | one-shot headless turn |
+| `bun daimon sessions` / `resume [id]` | list / resume stored sessions |
 | `bun test` | all tests (colocated `*.test.ts`, bun:test) |
 | `bun run typecheck` | `tsc --noEmit` over the whole monorepo |
 | `bun run check:fix` | Biome lint + format, writing fixes |
 | `bun run verify` | check + typecheck + test — the commit gate |
 | `bun run smoke` | one real API round-trip on `cheap` (needs key; never in CI) |
 
-Optional: `cd packages/cli && bun link` to get a global `demi` while developing.
+Optional: `cd packages/cli && bun link` to get a global `daimon` while developing.
 
 ## 3. Repo topology and dependency rules
 
@@ -100,16 +100,16 @@ The rule from the plan, operationalized: **you must be dogfooding phase N daily 
 - [x] Six tools with failure-path tests (`read_file`, `glob`, `grep`, `bash`, `write_file`, `edit_file` with unique-match + unified diff)
 - [x] Non-bypassable permission gate (policy + interactive prompter + `--yes` as policy)
 - [x] SQLite sessions, decision log, pre-mutation snapshots + `/undo`
-- [x] `demi` REPL + `demi -p` one-shot + `sessions` / `resume`
+- [x] `daimon` REPL + `daimon -p` one-shot + `sessions` / `resume`
 - [x] `/why` (text), `/cost`, `/mode default|explain`
 - [x] Anthropic provider + openai-compatible (local) via config TOML
 - [x] Live smoke test green against the real API
-- [x] **Exit criterion**: complete 3 real coding tasks in this repo with `demi` itself and file the friction notes in `DOGFOOD.md` *(met 2026-07-16 — 3 tasks, 8 friction entries)*
+- [x] **Exit criterion**: complete 3 real coding tasks in this repo with `daimon` itself and file the friction notes in `DOGFOOD.md` *(met 2026-07-16 — 3 tasks, 8 friction entries)*
 
 ### Phase 1 — Daily driver (weeks 2–4)
 - [x] Ink TUI: `<Static>` transcript, streaming live region, approval overlay with the diff rendered *before* approval *(landed 2026-07-17 — ADR-0004; PTY-verified live: streamed turn, diff-first approval, deny honored)*
 - [x] Streaming (`streamText`) in the loop, events unchanged *(landed 2026-07-17 — `assistant-delta` added for live regions; existing events untouched)*
-- [x] Repo map: `web-tree-sitter` + personalized PageRank, ~1k-token budget, cached in `.demi/cache/` *(landed 2026-07-17 — ADR-0005; 70 files, 90ms cold / 2ms warm, ~986 tok on this repo; live-checked: cheap model names gate/event files from the map, zero tool calls)*
+- [x] Repo map: `web-tree-sitter` + personalized PageRank, ~1k-token budget, cached in `.daimon/cache/` *(landed 2026-07-17 — ADR-0005; 70 files, 90ms cold / 2ms warm, ~986 tok on this repo; live-checked: cheap model names gate/event files from the map, zero tool calls)*
 - [x] Tool-mode fallback tiers (`json-fallback`, `xml-repair`) proven against one local model *(landed 2026-07-17 — protocol in the prompt, same executeCall/gate as native; json tier proven live on qwen2.5-coder:1.5b via Ollama, grounded answers from real tool runs; xml tier integration-tested, live proof waits on an XML-native model — ledger)*
 - [x] Session picker for `resume`, context warnings at ~70% window *(landed 2026-07-17 — `resume --pick`, full transcript replay from stored messages, warn-once notice at 70% of the model window; PTY-verified)*
 - [x] Esc interrupts the running turn; ctrl+c does the same headless *(landed 2026-07-18 — ADR-0006; AbortSignal through loop + ToolContext, partial text kept, unrun batch calls answered so stored history stays provider-valid, bash killed on abort; local usage mapping landed alongside so /cost and the 70% warning work on Ollama runs)*
@@ -119,7 +119,7 @@ The rule from the plan, operationalized: **you must be dogfooding phase N daily 
 - [ ] `/why` panel in TUI, linked to artifacts; plan-first mode with approve/edit/reject
 - [ ] `mentor` mode (TODO(you) gaps at decision points + diff review of the user's edit)
 - [ ] Concept ledger extraction pass (`cheap` model) + `/digest`
-- [ ] Built-in SM-2 recall (`demi review`)
+- [ ] Built-in FSRS recall (`daimon review`)
 - [ ] MCP client + Semideus Learn bridge (deposit cards, teach-back gate)
 - [ ] `/onboard` generating `FOR-YOU.md`
 - [ ] **Exit criterion**: your own review streak on coding-derived concepts ≥ 2 weeks
@@ -131,7 +131,7 @@ The rule from the plan, operationalized: **you must be dogfooding phase N daily 
 
 ## 8. How work gets proven
 
-**Retired 2026-07-23: the dogfooding gate.** For two phases, progress was gated on a journal of demi-driven sessions. It stopped paying: it required either paid cloud tokens per feature or a local model too small to implement anything, it stalled the repo for six days waiting on entries nobody could produce, and the friction it surfaced late was friction the implementing agent had already found early. `DOGFOOD.md` stays as a record of phases 0–1; it gates nothing. **Phases now turn on features shipped and verified.**
+**Retired 2026-07-23: the dogfooding gate.** For two phases, progress was gated on a journal of daimon-driven sessions. It stopped paying: it required either paid cloud tokens per feature or a local model too small to implement anything, it stalled the repo for six days waiting on entries nobody could produce, and the friction it surfaced late was friction the implementing agent had already found early. `DOGFOOD.md` stays as a record of phases 0–1; it gates nothing. **Phases now turn on features shipped and verified.**
 
 The working split, which is how every phase-1 feature actually landed:
 

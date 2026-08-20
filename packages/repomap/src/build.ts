@@ -5,7 +5,7 @@ import { rankFiles } from "./rank";
 import { renderMap } from "./render";
 
 const CACHE_VERSION = 2;
-const SKIP_SEGMENTS = new Set(["node_modules", "dist", "coverage", ".demi"]);
+const SKIP_SEGMENTS = new Set(["node_modules", "dist", "coverage", ".daimon"]);
 /** Minified bundles and generated monsters don't belong on the map. */
 const MAX_FILE_BYTES = 400_000;
 const SOURCE_GLOB = "**/*.{ts,tsx,js,jsx,mts,cts,mjs,cjs}";
@@ -37,7 +37,7 @@ export interface BuildResult {
 }
 
 function cachePath(cwd: string): string {
-  return join(cwd, ".demi", "cache", "repomap.json");
+  return join(cwd, ".daimon", "cache", "repomap.json");
 }
 
 async function loadCache(cwd: string): Promise<Record<string, CacheEntry>> {
@@ -71,7 +71,7 @@ function skipped(relPath: string): boolean {
 
 /**
  * Walk the workspace, (re)extract what changed since the cached run, rank,
- * render. The extract graph is cached by mtime in .demi/cache/repomap.json;
+ * render. The extract graph is cached by mtime in .daimon/cache/repomap.json;
  * ranking and rendering run fresh each build (they're cheap and take the
  * personalization of the moment).
  */

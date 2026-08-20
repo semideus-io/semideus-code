@@ -39,7 +39,7 @@ export const configSchema = z.object({
     .default({ max_steps: 32 }),
 });
 
-export type DemiConfig = z.infer<typeof configSchema>;
+export type DaimonConfig = z.infer<typeof configSchema>;
 
 /**
  * Built-in model entries; user config with the same id overrides them.
@@ -69,6 +69,6 @@ export const BUILTIN_MODELS: Record<string, ModelConfig> = {
   },
 };
 
-export function mergedModels(config: DemiConfig): Record<string, ModelConfig> {
+export function mergedModels(config: DaimonConfig): Record<string, ModelConfig> {
   return { ...BUILTIN_MODELS, ...config.models };
 }

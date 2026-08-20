@@ -1,15 +1,15 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { ConfigError, configSchema, type DemiConfig } from "@semideus/providers";
+import { ConfigError, configSchema, type DaimonConfig } from "@semideus/providers";
 import { parse as parseToml } from "smol-toml";
 
 export function configDir(): string {
   const base = process.env.XDG_CONFIG_HOME ?? join(homedir(), ".config");
-  return join(base, "demi");
+  return join(base, "daimon");
 }
 
-export const DEFAULT_CONFIG_TOML = `# demi — Semideus Code configuration
+export const DEFAULT_CONFIG_TOML = `# daimon — Semideus Code configuration
 # Model entries here are merged over the built-ins ("default", "cheap").
 # cost_in / cost_out are USD per million tokens and only drive /cost estimates —
 # keep them current with your provider's pricing.
@@ -49,7 +49,7 @@ max_steps = 32
 `;
 
 export interface LoadedConfig {
-  config: DemiConfig;
+  config: DaimonConfig;
   path: string;
   created: boolean;
 }

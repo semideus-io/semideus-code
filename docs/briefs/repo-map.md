@@ -1,9 +1,9 @@
 # Brief: Repo map (phase-1 gate item)
 
-Give demi a ranked, ~1k-token structural map of the repo in its system prompt, so it stops
+Give daimon a ranked, ~1k-token structural map of the repo in its system prompt, so it stops
 guessing where things live. Design per PLAN §"repo map" (line ~219): parse with
 `web-tree-sitter` (WASM), build a definition/reference graph, rank with personalized
-PageRank, render the top slice under a token budget, cache in `.demi/cache/`. This is
+PageRank, render the top slice under a token budget, cache in `.daimon/cache/`. This is
 Aider's proven design. ADR-0003 says the dependency lands with this feature — that's now.
 
 ## Constraints (non-negotiable)
@@ -17,7 +17,7 @@ Aider's proven design. ADR-0003 says the dependency lands with this feature — 
   consequences, ~15 lines), including where the grammar `.wasm` files come from.
 - **No gate involvement.** The map is harness context assembly (like reading AGENTS.md),
   not an agent tool. It never prompts for permission and never mutates the workspace
-  (`.demi/cache/` is already gitignored).
+  (`.daimon/cache/` is already gitignored).
 - **Graceful absence.** Any failure — grammar won't load, cache corrupt, parse error —
   degrades to "no repo map section in the prompt" plus a stderr warning. A broken map
   must never break a turn.
@@ -29,13 +29,13 @@ Aider's proven design. ADR-0003 says the dependency lands with this feature — 
 - **v1 languages: TS / TSX / JS only.** This repo is the dogfood target. Other grammars
   are a later ledger entry.
 - **Graph is cached; ranking is per-prompt.** Cache file → `{mtimeMs, defs, refs}` per
-  source file in `.demi/cache/repomap.json`; re-extract only files whose mtime changed.
+  source file in `.daimon/cache/repomap.json`; re-extract only files whose mtime changed.
   PageRank runs fresh each prompt build (it's cheap) so personalization can vary.
 - **Personalization = files touched this session** (read/edited/mentioned). If the
   session has touched nothing yet, fall back to uniform personalization.
 - **Token budget ≈ 1k, heuristic `chars/4`, budget configurable** (constant for now).
 - **File discovery via `Bun.Glob`** over the workspace, skipping `node_modules`, `dist`,
-  `coverage`, `.demi`, dotfiles. No new dep for walking.
+  `coverage`, `.daimon`, dotfiles. No new dep for walking.
 
 ## Steps — one per dogfood session, stop after each
 
@@ -64,7 +64,7 @@ re-extracted; corrupt JSON → full rebuild, no throw.
 
 **6. Wire + close out.** `cli/src/main.ts` builds the map (async, before first turn) →
 new `Session` field `repoMap: string` → `prompt.ts` renders `## Repo map` (after
-Working rules, before AGENTS.md). Live check: `bun demi -p "which file implements the
+Working rules, before AGENTS.md). Live check: `bun daimon -p "which file implements the
 permission gate?"` answers from the map without grepping. Then: tick the DEVELOPMENT.md
 §7 checkbox, delete the "No repo map" honesty-ledger row, note cold vs warm build time
 in the commit body.
@@ -75,7 +75,7 @@ in the commit body.
 - Map for this repo renders under the budget and names the files that actually matter
   (`loop.ts`, `permissions.ts`, `session.ts`, tool files…).
 - Second run in an unchanged repo hits the cache (visibly faster / extractor not called).
-- Deleting `.demi/cache/` or the grammar wasm degrades gracefully: turn still works,
+- Deleting `.daimon/cache/` or the grammar wasm degrades gracefully: turn still works,
   prompt just lacks the section.
 
 ## Out of scope (v1)

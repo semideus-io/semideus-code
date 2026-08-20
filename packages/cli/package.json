@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "type": "module",
   "bin": {
-    "demi": "./src/main.ts"
+    "daimon": "./src/main.ts"
   },
   "exports": {
     ".": "./src/main.ts"

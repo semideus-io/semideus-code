@@ -31,7 +31,7 @@ export interface SnapshotRow {
 
 export function defaultDataDir(): string {
   const base = process.env.XDG_DATA_HOME ?? join(homedir(), ".local", "share");
-  return join(base, "demi");
+  return join(base, "daimon");
 }
 
 const EMPTY_USAGE: UsageTotals = {
@@ -43,7 +43,7 @@ const EMPTY_USAGE: UsageTotals = {
 };
 
 /**
- * Everything demi remembers lives here: sessions (messages as one JSON blob —
+ * Everything daimon remembers lives here: sessions (messages as one JSON blob —
  * pragmatic v1), the decision log (rows: the learning layer queries them),
  * pre-mutation file snapshots (backs /undo), and the concept ledger.
  */
@@ -52,7 +52,7 @@ export class SessionStore {
   private readonly db: Database;
 
   constructor(path?: string) {
-    this.path = path ?? join(defaultDataDir(), "demi.sqlite");
+    this.path = path ?? join(defaultDataDir(), "daimon.sqlite");
     if (this.path !== ":memory:") mkdirSync(dirname(this.path), { recursive: true });
     this.db = new Database(this.path);
     this.db.exec("pragma journal_mode = WAL;");
@@ -161,7 +161,7 @@ export class SessionStore {
   }
 
   /**
-   * Most-recent sessions, newest first. `cwd` scopes to one project: demi runs
+   * Most-recent sessions, newest first. `cwd` scopes to one project: daimon runs
    * in any repo but stores every session in one database, so an unscoped list
    * is other projects' history by default.
    */
@@ -189,7 +189,7 @@ export class SessionStore {
     }));
   }
 
-  /** Newest session, optionally within one project. Backs `demi resume` with no id. */
+  /** Newest session, optionally within one project. Backs `daimon resume` with no id. */
   latestSessionId(cwd?: string): string | null {
     const row = cwd
       ? this.db

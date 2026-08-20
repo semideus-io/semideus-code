@@ -28,7 +28,7 @@ describe("buildRepoMap", () => {
     expect(result.map).toContain("core.ts:");
     expect(result.map).toContain("export function runTurn(): void");
     expect(result.map).not.toContain("hidden");
-    expect(await Bun.file(join(dir, ".demi", "cache", "repomap.json")).exists()).toBe(true);
+    expect(await Bun.file(join(dir, ".daimon", "cache", "repomap.json")).exists()).toBe(true);
   });
 
   test("warm build re-parses nothing and renders the same map", async () => {
@@ -49,7 +49,7 @@ describe("buildRepoMap", () => {
 
   test("a corrupt cache file rebuilds from scratch instead of throwing", async () => {
     await buildRepoMap(dir);
-    writeFileSync(join(dir, ".demi", "cache", "repomap.json"), "{not json at all");
+    writeFileSync(join(dir, ".daimon", "cache", "repomap.json"), "{not json at all");
     const rebuilt = await buildRepoMap(dir);
     expect(rebuilt.parsed).toBe(2);
     expect(rebuilt.map).toContain("core.ts:");

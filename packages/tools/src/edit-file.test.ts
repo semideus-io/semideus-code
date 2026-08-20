@@ -9,7 +9,7 @@ let dir: string;
 const dirs: string[] = [];
 
 function setup(content: string): { ctx: ToolContext; file: string; snapshots: string[] } {
-  dir = mkdtempSync(join(tmpdir(), "demi-edit-"));
+  dir = mkdtempSync(join(tmpdir(), "daimon-edit-"));
   dirs.push(dir);
   const file = join(dir, "sample.ts");
   Bun.write(file, content);

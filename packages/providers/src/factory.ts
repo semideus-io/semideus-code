@@ -24,7 +24,7 @@ export function buildModelSpec(
     const apiKey = env[envName];
     if (!apiKey) {
       throw new ConfigError(
-        `model "${id}" (${cfg.model}) needs ${envName} — export it or set api_key_env in ~/.config/demi/config.toml`,
+        `model "${id}" (${cfg.model}) needs ${envName} — export it or set api_key_env in ~/.config/daimon/config.toml`,
       );
     }
     const anthropic = createAnthropic({ apiKey, fetch: fetchImpl });

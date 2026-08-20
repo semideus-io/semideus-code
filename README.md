@@ -2,7 +2,7 @@
 
 **Train / Learn / Code** — body, knowledge, craft. The third member of the Semideus family: a terminal coding agent whose promise is that *you understand your codebase better after using it than before*.
 
-- **Command:** `demi` — the *semi* half of *semideus*: you are one half, `demi` brings the other.
+- **Command:** `daimon` — the *semi* half of *semideus*: you are one half, `daimon` brings the other.
 - **Persona:** **Daimon** — in the lineage of Socrates' daimonion: it advises, warns, and teaches, but never acts in your place. The permission gate enforces that contract in code.
 - **Package:** `@semideus/code`
 
@@ -15,19 +15,19 @@ Phase 1 in progress: streaming agent loop, six tools with pre-approval previews,
 ```bash
 bun install
 export ANTHROPIC_API_KEY=sk-ant-…   # or set api_key_env in config
-bun demi                             # interactive TUI
-bun demi -p "explain the loop in packages/core/src/loop.ts"
+bun daimon                             # interactive TUI
+bun daimon -p "explain the loop in packages/core/src/loop.ts"
 ```
 
-First run writes a commented config to `~/.config/demi/config.toml` (models, permissions, limits). Local models (Ollama / LM Studio / vLLM) plug in as `openai-compatible` endpoints there.
+First run writes a commented config to `~/.config/daimon/config.toml` (models, permissions, limits). Local models (Ollama / LM Studio / vLLM) plug in as `openai-compatible` endpoints there.
 
 ## CLI surface
 
 ```
-demi                    interactive TUI
-demi -p "task"          one-shot headless run
-demi sessions           list stored sessions
-demi resume [id]        resume a session (latest if no id)
+daimon                    interactive TUI
+daimon -p "task"          one-shot headless run
+daimon sessions           list stored sessions
+daimon resume [id]        resume a session (latest if no id)
 ```
 
 Flags (apply to the TUI and one-shot):
@@ -40,7 +40,7 @@ Flags (apply to the TUI and one-shot):
 | `--help` | `-h` | print usage |
 | `--version` | `-v` | print version |
 
-`demi sessions` lists every stored session (id, last-updated, model, title). `demi resume <id-prefix>` resumes by any unambiguous prefix of the session id; `demi resume` with no id resumes the most recent one.
+`daimon sessions` lists every stored session (id, last-updated, model, title). `daimon resume <id-prefix>` resumes by any unambiguous prefix of the session id; `daimon resume` with no id resumes the most recent one.
 
 ### Commands
 
@@ -69,7 +69,7 @@ packages/
   tools/       read_file · glob · grep · bash · write_file · edit_file
   learning/    concept ledger (the moat — phase 2)
   tui/         Ink renderer of core events: transcript, live region, approval overlay
-  cli/         demi entry point: TUI, one-shot, sessions
+  cli/         daimon entry point: TUI, one-shot, sessions
 ```
 
 ## Docs

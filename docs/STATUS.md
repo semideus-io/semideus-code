@@ -8,7 +8,7 @@ this file answers "if I sat down right now, what do I have?"
 
 ## 1. One paragraph
 
-`demi` is a working terminal coding agent. You can run it against Claude or a local
+`daimon` is a working terminal coding agent. You can run it against Claude or a local
 Ollama model, chat with it in an Ink TUI or headless with `-p`, and it will read,
 search, edit, and run things in your repo — but only after asking permission, and
 showing you the exact diff or command *before* you say yes. Every session, every
@@ -26,10 +26,10 @@ in phase 1 is not code — it's proof: a week of actually using it daily.
 | **Approval UX** | The diff / full command renders **before** you approve, in both the TUI overlay and headless prompt (ADR-0004) |
 | **TUI** | Ink: `<Static>` transcript, live streaming region, approval overlay, spinner |
 | **Interrupt** | `esc` in the TUI, `ctrl+c` headless — cuts the model mid-stream, kills running bash, keeps partial text, saves the session (ADR-0006) |
-| **Sessions** | `bun:sqlite`. `demi sessions`, `resume`, `resume --pick` with full transcript replay |
+| **Sessions** | `bun:sqlite`. `daimon sessions`, `resume`, `resume --pick` with full transcript replay |
 | **Safety net** | Every mutating tool snapshots the file first → `/undo` is trustworthy |
-| **Repo map** | tree-sitter + personalized PageRank, ~1k-token budget, cached in `.demi/cache/`. 70 files → 90 ms cold, 2 ms warm (ADR-0005) |
-| **Providers** | Anthropic + any OpenAI-compatible endpoint (Ollama/LM Studio/vLLM), all from `~/.config/demi/config.toml` — adding a model is config, never code |
+| **Repo map** | tree-sitter + personalized PageRank, ~1k-token budget, cached in `.daimon/cache/`. 70 files → 90 ms cold, 2 ms warm (ADR-0005) |
+| **Providers** | Anthropic + any OpenAI-compatible endpoint (Ollama/LM Studio/vLLM), all from `~/.config/daimon/config.toml` — adding a model is config, never code |
 | **Weak-model support** | Tool-mode tiers: `native` → `json-fallback` → `xml-repair`. The json tier is proven live on qwen2.5-coder:1.5b |
 | **Cost tracking** | Token + $ per turn and per session, with Anthropic prompt caching wired in (reads priced at 0.1×) |
 | **Context warning** | Warn-once notice at 70% of the model's window |
@@ -58,7 +58,7 @@ Everything in phase 2 (the moat) and phase 3 (hardening):
 - **No `mentor` mode** — the `TODO(you)` gaps + diff-review-of-your-edit loop
 - **No concept ledger extraction** — `packages/learning/` is a ~20-line stub class.
   Nothing extracts concepts from diffs yet, so there's no `/digest`
-- **No recall** — no SM-2 scheduler, no `demi review`
+- **No recall** — no SM-2 scheduler, no `daimon review`
 - **No MCP client** — no Semideus Learn bridge, no knowledge cards, no teach-back gate
 - **No `/onboard`** / `FOR-YOU.md`
 - **No compaction, shadow-git checkpoints, subagents, eval harness, or binaries**
@@ -78,28 +78,29 @@ Full table in [DEVELOPMENT.md §10](../DEVELOPMENT.md). The ones you'll feel fir
 
 ## 6. The next step
 
-**Phase 2, in build order.** Each item reads from data the loop already stores, so the
-order is cheapest-first and each one is testable by eye:
+**Phase 2, in build order.** Each remaining feature has a spec in `briefs/` —
+constraints, decisions already made, stepped plan, and verification criteria:
 
-1. **`/why` panel in the TUI** — navigable, linked to artifacts. `/why` is text-only
-   today; the `DecisionEvent`s it needs are already logged. *(in progress)*
-2. **Plan-first mode** — numbered plan with per-step rationale, approve/edit/reject
-   before anything mutates. One prompt state + one overlay, reusing the approval path.
-3. **`mentor` mode** — `TODO(you)` gaps at decision points, then a senior-engineer
-   review of your diff. The deep one.
-4. **Concept ledger + `/digest`** — a `cheap`-model pass over diffs and the decision log
-   fills `packages/learning/`, which is a stub today.
-5. **Built-in recall** — SM-2 over the ledger, `demi review`.
-6. **MCP client + Semideus Learn bridge** — concepts become knowledge cards; teach-back
-   gates big merges. The unfair advantage nobody else can copy.
+1. ~~**`/why` panel in the TUI**~~ — landed `dfe6a15` (2026-07-23), navigable, linked
+   to artifacts.
+2. **Plan-first mode** — [briefs/plan-first.md](briefs/plan-first.md). Numbered plan
+   approved through the gate before anything mutates; completes checkbox 1.
+3. **`mentor` mode** — [briefs/mentor-mode.md](briefs/mentor-mode.md). `TODO(you)`
+   gaps at decision points, then `/review` of your actual diff.
+4. **Concept ledger + `/digest`** — [briefs/concept-ledger.md](briefs/concept-ledger.md).
+   `cheap`-model extraction over the decision log fills `packages/learning/`.
+5. **Built-in recall** — [briefs/recall.md](briefs/recall.md). FSRS (via `ts-fsrs`)
+   over the ledger, `daimon review`, streak tracking (the phase-exit instrument).
+6. **MCP client + Semideus Learn bridge** —
+   [briefs/semideus-bridge.md](briefs/semideus-bridge.md). Concepts become knowledge
+   cards; teach-back via the Learn server. The unfair advantage nobody else can copy.
+7. **`/onboard` + `FOR-YOU.md`** — [briefs/onboard.md](briefs/onboard.md). Closes the
+   phase's feature list.
 
-Then `/onboard` + `FOR-YOU.md`. Phase-2 exit: a review streak on coding-derived
-concepts ≥ 2 weeks.
+Phase-2 exit: a review streak on coding-derived concepts ≥ 2 weeks — the clock starts
+when `daimon review` (item 5) lands.
 
-**First phase-2 feature when the gate opens:** the `/why` TUI panel + plan-first mode.
-Reason to start there rather than the ledger: both read from `DecisionEvent`s that
-already exist, both are UI over data we're already storing, and both directly improve
-the dogfooding loop that's currently blocking us — plan-first cuts wasted turns on a
-cheap model, and `/why` is the surface DEVELOPMENT.md §8 says to check first when demi
-surprises you. The concept ledger comes after, because it needs a new extraction pass
-and a `cheap`-model round-trip per turn.
+The order is dependency-honest and cheapest-first: plan-first reuses the existing
+approval path; mentor is prompt + a small turn-end hook; the ledger needs the first
+`cheap`-model pass; recall reads the ledger; the bridge deposits from it; `/onboard`
+composes everything.

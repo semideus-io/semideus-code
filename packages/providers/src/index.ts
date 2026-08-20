@@ -2,7 +2,7 @@ export {
   BUILTIN_MODELS,
   ConfigError,
   configSchema,
-  type DemiConfig,
+  type DaimonConfig,
   type ModelConfig,
   mergedModels,
   modelConfigSchema,
