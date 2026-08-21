@@ -3,15 +3,22 @@
 [![CI](https://github.com/semideus-io/semideus-code/actions/workflows/ci.yml/badge.svg)](https://github.com/semideus-io/semideus-code/actions/workflows/ci.yml)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 
-**Train / Learn / Code** — body, knowledge, craft. The third member of the Semideus family: a terminal coding agent whose promise is that *you understand your codebase better after using it than before*.
+A terminal coding agent, `daimon`, built around one idea: **you should understand your codebase better after using it, not worse.**
 
-- **Command:** `daimon` — the *semi* half of *semideus*: you are one half, `daimon` brings the other.
-- **Persona:** **Daimon** — in the lineage of Socrates' daimonion: it advises, warns, and teaches, but never acts in your place. The permission gate enforces that contract in code.
-- **Package:** `@semideus/code`
+## The problem
 
-## Status
+AI agents now write a lot of your code. The code ships — your understanding doesn't. Every generated diff you approve without really reading it is **cognitive debt**: you end up owning a codebase you no longer know. It works until the day you have to debug it, extend it, or explain it.
 
-**Phase 1 is complete** — the coding agent is real: streaming agent loop, six tools with pre-approval previews, a non-bypassable permission gate, SQLite sessions with resume and replay, pre-mutation snapshots with `/undo`, a decision log with a navigable `/why` panel, tree-sitter repo map, cache-aware cost tracking, weak-model tool fallbacks, and an Ink TUI that renders the diff *before* every approval. **Phase 2 — the learning layer (the moat) — is in progress.** The honest, current snapshot always lives in [docs/STATUS.md](docs/STATUS.md).
+## The solution
+
+`daimon` writes code with you, not instead of you:
+
+- **Nothing happens without you.** Every file edit shows its full diff and every shell command shows itself *before* you approve it. The permission gate is enforced in code and the model cannot bypass it.
+- **Every action is explainable.** `/why` shows the decision log: what was done and why, anchored to real artifacts — diffs and command output, not the model's say-so.
+- **Every change is reversible.** Files are snapshotted before they're touched; `/undo` restores them.
+- **Understanding is the roadmap.** In progress: a learning layer that turns what the agent did in your repo into concepts you actually review and retain — paying the debt down instead of up.
+
+Works with Claude or any local model (Ollama / LM Studio / vLLM). The agent is fully working today; the learning layer is being built — the honest, current state always lives in [docs/STATUS.md](docs/STATUS.md).
 
 ## Install
 
@@ -99,18 +106,18 @@ packages/
   core/        contracts, agent loop, session, permission gate, SQLite store, decision log
   providers/   config schema + AI SDK adapters (anthropic, openai-compatible)
   tools/       read_file · glob · grep · bash · write_file · edit_file
-  learning/    concept ledger (the moat — phase 2)
+  learning/    concept ledger (in progress)
   tui/         Ink renderer of core events: transcript, live region, approval overlay
   cli/         daimon entry point: TUI, one-shot, sessions
 ```
 
 ## Docs
 
-- [docs/PLAN.md](docs/PLAN.md) — the full product plan (stack, moat, roadmap)
+- [docs/PLAN.md](docs/PLAN.md) — the full product plan
 - [docs/STATUS.md](docs/STATUS.md) — where the product actually is, checked against the code
 - [DEVELOPMENT.md](DEVELOPMENT.md) — how this repo is developed: ground rules, phase gates, honesty ledger
 - [docs/adr/](docs/adr/) — architecture decision records
 
 ## License
 
-[Apache-2.0](LICENSE). The CLI is open; the Semideus Learn server it can bridge to is a separate, closed product ([ADR-0010](docs/adr/0010-distribution-shape-and-license.md)).
+[Apache-2.0](LICENSE) — see [ADR-0010](docs/adr/0010-distribution-shape-and-license.md).
