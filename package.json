@@ -15,7 +15,8 @@
     "check:fix": "biome check --write .",
     "test": "bun test",
     "smoke": "bun scripts/smoke.ts",
-    "verify": "bun run check && bun run typecheck && bun test"
+    "verify": "bun run check && bun run typecheck && bun test",
+    "release": "bun scripts/release.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.4",

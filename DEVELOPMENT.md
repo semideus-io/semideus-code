@@ -89,7 +89,25 @@ Where things go:
 - Conventional commits: `feat(tools): …`, `fix(core): …`, `docs: …`, `test: …`, `chore: …`, `refactor: …`.
 - Small commits — one logical change each. The decision log philosophy applies to you too: a commit message states the what, the body states the why when it isn't obvious.
 - `.githooks/pre-commit` runs `bun run verify`; CI (`.github/workflows/ci.yml`) runs the identical gate on Ubuntu. `--no-verify` is for emergencies, and an emergency is followed by a fix commit.
-- Tag phase completions: `v0.1.0-phase0`, `v0.2.0-phase1`, …
+- Tags are **releases only** — `vX.Y.Z`, always cut by `bun run release`, never by hand. (The old `vX.Y.Z-phaseN` idea is dead: anything matching `v*` triggers the release workflow.) Phase completions are recorded in STATUS.md, not tags.
+
+### Releasing
+
+`git remote`: [github.com/semideus-io/semideus-code](https://github.com/semideus-io/semideus-code), public. `main` is branch-protected on the CI `verify` job. Releasing is mechanical: **push a tag, get a release** — `.github/workflows/release.yml` runs tag-version guard → verify → cross-compile (one ubuntu runner builds all four targets) → keyless binary checks on real ubuntu/macos/windows runners (windows `continue-on-error`: experimental) → GitHub Release with binaries + `SHA256SUMS` → npm publish. Order is a correctness constraint: the wrapper's postinstall downloads from the Release, so npm publishes last, and only from green. A failed tag publishes nothing.
+
+To cut a version:
+
+```bash
+bun run release <patch|minor|major|X.Y.Z> [release notes…]
+```
+
+The script bumps `packages/cli/package.json` (the only version number that exists), runs the local pre-tag gate — `bun run verify`, `bun run build`, `--version` match from the compiled binary, and a **live smoke through the binary** (`-m cheap`, read-only, needs `ANTHROPIC_API_KEY`; `bun run smoke` stays out of CI per the standing rule) — then commits `release: vX.Y.Z` and creates the annotated tag. Gate red → bump reverted, nothing tagged. It never pushes; you do:
+
+```bash
+git push origin main vX.Y.Z
+```
+
+**npm auth is OIDC trusted publishing** — there is no `NPM_TOKEN` anywhere. One-time setup on npmjs.com (already-done checklist, kept for the day it needs redoing): package `@semideus/code` → Settings → Publishing access → *Trusted Publisher* → GitHub Actions, repository `semideus-io/semideus-code`, workflow `release.yml`. `npm publish --provenance` then authenticates via the workflow's OIDC token and publishes a provenance attestation linking the package to the exact commit and run that built it.
 
 ## 7. Phase gates
 

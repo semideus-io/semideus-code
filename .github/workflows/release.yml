@@ -1,0 +1,129 @@
+name: release
+
+# Releasing is deliberate: only annotated tags vX.Y.Z, never branch pushes.
+# Publish order is a correctness constraint — the npm wrapper's postinstall
+# downloads from the GitHub Release, so the Release must exist before npm
+# publish runs. A failed tag publishes nothing.
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Guard — tag must equal packages/cli/package.json version
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          PKG=$(jq -r .version packages/cli/package.json)
+          if [ "$TAG" != "$PKG" ]; then
+            echo "::error::tag ${GITHUB_REF_NAME} != packages/cli/package.json version ${PKG} — refusing to release" >&2
+            exit 1
+          fi
+      - uses: oven-sh/setup-bun@v2
+      - name: Install ripgrep (grep tool dependency)
+        run: sudo apt-get update -q && sudo apt-get install -y -q ripgrep
+      - run: bun install --frozen-lockfile
+      - run: bun run check
+      - run: bun run typecheck
+      - run: bun test
+      - name: Cross-compile all four targets
+        run: bun run build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: |
+            dist/daimon-*
+            dist/SHA256SUMS
+          if-no-files-found: error
+
+  # Keyless checks on real hardware: checksums, --version (must equal the tag),
+  # --help, and `sessions` (runs without an API key). The full agentic smoke from
+  # the compiled binary is a local pre-tag gate (DEVELOPMENT.md), never CI.
+  check-linux:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with: { name: dist }
+      - run: sha256sum --check --ignore-missing SHA256SUMS
+      - name: Keyless binary checks (daimon-linux-x64)
+        run: |
+          chmod +x daimon-linux-x64
+          V=$(./daimon-linux-x64 --version)
+          [ "$V" = "${GITHUB_REF_NAME#v}" ] || { echo "::error::--version printed '$V', tag says '${GITHUB_REF_NAME#v}'"; exit 1; }
+          ./daimon-linux-x64 --help
+          ./daimon-linux-x64 sessions
+
+  check-macos:
+    needs: build
+    runs-on: macos-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with: { name: dist }
+      - run: shasum -a 256 --check --ignore-missing SHA256SUMS
+      - name: Keyless binary checks (daimon-darwin-arm64)
+        run: |
+          chmod +x daimon-darwin-arm64
+          V=$(./daimon-darwin-arm64 --version)
+          [ "$V" = "${GITHUB_REF_NAME#v}" ] || { echo "::error::--version printed '$V', tag says '${GITHUB_REF_NAME#v}'"; exit 1; }
+          ./daimon-darwin-arm64 --help
+          ./daimon-darwin-arm64 sessions
+
+  check-windows:
+    needs: build
+    runs-on: windows-latest
+    continue-on-error: true # windows-x64 is experimental in v1 (packaging brief)
+    steps:
+      - uses: actions/download-artifact@v4
+        with: { name: dist }
+      - name: Keyless binary checks (daimon-windows-x64.exe)
+        shell: bash
+        run: |
+          V=$(./daimon-windows-x64.exe --version)
+          [ "$V" = "${GITHUB_REF_NAME#v}" ] || { echo "::error::--version printed '$V', tag says '${GITHUB_REF_NAME#v}'"; exit 1; }
+          ./daimon-windows-x64.exe --help
+
+  release:
+    needs: [build, check-linux, check-macos, check-windows]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4 # gh needs a repo context; notes come from the tag annotation
+      - uses: actions/download-artifact@v4
+        with: { name: dist, path: dist }
+      - name: Create GitHub Release with binaries + checksums
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" dist/daimon-* dist/SHA256SUMS \
+            --title "$GITHUB_REF_NAME" --notes-from-tag --verify-tag
+
+  npm:
+    needs: release
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write # OIDC trusted publishing — no NPM_TOKEN exists
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+      - run: bun install --frozen-lockfile
+      - name: Download the exact artifacts this run just released
+        uses: actions/download-artifact@v4
+        with: { name: dist, path: dist }
+      - name: Generate the checksum-pinned wrapper
+        run: bun run build:npm
+      - name: Publish @semideus/code with provenance
+        working-directory: dist/npm
+        run: npm publish --provenance --access public
