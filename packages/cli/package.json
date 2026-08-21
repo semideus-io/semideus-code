@@ -4,6 +4,10 @@
   "version": "0.0.1",
   "type": "module",
   "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/semideus-io/semideus-code.git"
+  },
   "bin": {
     "daimon": "./src/main.ts"
   },

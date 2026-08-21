@@ -1,5 +1,8 @@
 # Semideus Code
 
+[![CI](https://github.com/semideus-io/semideus-code/actions/workflows/ci.yml/badge.svg)](https://github.com/semideus-io/semideus-code/actions/workflows/ci.yml)
+[![License: Apache-2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
+
 **Train / Learn / Code** — body, knowledge, craft. The third member of the Semideus family: a terminal coding agent whose promise is that *you understand your codebase better after using it than before*.
 
 - **Command:** `daimon` — the *semi* half of *semideus*: you are one half, `daimon` brings the other.
@@ -8,18 +11,47 @@
 
 ## Status
 
-Phase 1 in progress: streaming agent loop, six tools with pre-approval previews, non-bypassable permission gate, SQLite sessions, decision log with `/why`, cache-aware cost tracking, and an Ink TUI — live-streamed transcript with the diff rendered *before* every approval. Repo map, tool-mode fallbacks, session picker, and the learning layer are next — see [DEVELOPMENT.md](DEVELOPMENT.md).
+**Phase 1 is complete** — the coding agent is real: streaming agent loop, six tools with pre-approval previews, a non-bypassable permission gate, SQLite sessions with resume and replay, pre-mutation snapshots with `/undo`, a decision log with a navigable `/why` panel, tree-sitter repo map, cache-aware cost tracking, weak-model tool fallbacks, and an Ink TUI that renders the diff *before* every approval. **Phase 2 — the learning layer (the moat) — is in progress.** The honest, current snapshot always lives in [docs/STATUS.md](docs/STATUS.md).
 
-## Quickstart
+## Install
+
+### npm
+
+```bash
+npm install -g @semideus/code
+```
+
+The package is a thin wrapper: its postinstall downloads the self-contained binary for your platform from the matching GitHub Release and verifies it against a SHA-256 checksum baked in at build time.
+
+### curl
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/semideus-io/semideus-code/main/install.sh | sh
+```
+
+Installs to `~/.local/bin/daimon` (override with `DAIMON_INSTALL_DIR`; pin a version with `DAIMON_VERSION=0.1.0`). Same checksum verification as the npm route.
+
+### Direct download
+
+Grab `daimon-<os>-<arch>` from the [latest release](https://github.com/semideus-io/semideus-code/releases/latest), verify it against `SHA256SUMS`, `chmod +x`, and put it on your PATH. Supported targets: `linux-x64`, `darwin-arm64`, `darwin-x64`, and `windows-x64` (experimental).
+
+### First run
+
+```bash
+export ANTHROPIC_API_KEY=sk-ant-…   # or set api_key_env in config
+daimon                              # interactive TUI
+daimon -p "explain the loop in packages/core/src/loop.ts"
+```
+
+First run writes a commented config to `~/.config/daimon/config.toml` (models, permissions, limits). Local models (Ollama / LM Studio / vLLM) plug in as `openai-compatible` endpoints there — no key required. The `grep` tool wants [ripgrep](https://github.com/BurntSushi/ripgrep) on your PATH; without it, daimon tells you and carries on.
+
+## Run from source
 
 ```bash
 bun install
-export ANTHROPIC_API_KEY=sk-ant-…   # or set api_key_env in config
 bun daimon                             # interactive TUI
-bun daimon -p "explain the loop in packages/core/src/loop.ts"
+bun daimon -p "task"                   # one-shot headless
 ```
-
-First run writes a commented config to `~/.config/daimon/config.toml` (models, permissions, limits). Local models (Ollama / LM Studio / vLLM) plug in as `openai-compatible` endpoints there.
 
 ## CLI surface
 
@@ -75,5 +107,10 @@ packages/
 ## Docs
 
 - [docs/PLAN.md](docs/PLAN.md) — the full product plan (stack, moat, roadmap)
-- [DEVELOPMENT.md](DEVELOPMENT.md) — how this repo is developed: ground rules, phase gates, dogfooding protocol
+- [docs/STATUS.md](docs/STATUS.md) — where the product actually is, checked against the code
+- [DEVELOPMENT.md](DEVELOPMENT.md) — how this repo is developed: ground rules, phase gates, honesty ledger
 - [docs/adr/](docs/adr/) — architecture decision records
+
+## License
+
+[Apache-2.0](LICENSE). The CLI is open; the Semideus Learn server it can bridge to is a separate, closed product ([ADR-0010](docs/adr/0010-distribution-shape-and-license.md)).
