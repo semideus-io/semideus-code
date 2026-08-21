@@ -63,7 +63,7 @@ fi
 
 mkdir -p "$INSTALL_DIR"
 install -m 755 "$tmp/$artifact" "$INSTALL_DIR/daimon"
-echo "installed daimon $("$INSTALL_DIR/daimon" --version) → $INSTALL_DIR/daimon"
+echo "installed $("$INSTALL_DIR/daimon" --version) → $INSTALL_DIR/daimon"
 
 case ":$PATH:" in
   *":$INSTALL_DIR:"*) ;;

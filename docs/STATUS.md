@@ -35,6 +35,7 @@ in phase 1 is not code — it's proof: a week of actually using it daily.
 | **Context warning** | Warn-once notice at 70% of the model's window |
 | **Commands** | `/why` `/cost` `/undo` `/mode` `/session` `/permissions` `/help` `/exit` — one implementation, both renderers |
 | **Packaging** | `bun run build` → 4 self-contained binaries (wasm embedded, no node_modules at runtime) + SHA256SUMS; `bun run build:npm` → checksum-pinned `@semideus/code` wrapper. Apache-2.0, ADR-0010. Proven live 2026-08-20 |
+| **Published** | [github.com/semideus-io/semideus-code](https://github.com/semideus-io/semideus-code), public, branch-protected on CI. **v0.1.0 released 2026-08-21**: tag-triggered pipeline (guard → verify → cross-compile → per-OS checks incl. real-ubuntu linux-x64 → GitHub Release). `curl \| sh` installer proven against the live release. npm publish is wired (OIDC) but awaiting the one-time trusted-publisher setup on npmjs.com |
 
 **Health check right now:** 194 tests pass across 27 files, `tsc --noEmit` clean,
 ~7,000 lines of source across 7 packages.
@@ -63,8 +64,9 @@ Everything in phase 2 (the moat) and phase 3 (hardening):
 - **No MCP client** — no Semideus Learn bridge, no knowledge cards, no teach-back gate
 - **No `/onboard`** / `FOR-YOU.md`
 - **No compaction, shadow-git checkpoints, subagents, or eval harness** (binaries
-  landed 2026-08-20 — [briefs/packaging.md](briefs/packaging.md) is done; publishing
-  itself is [briefs/release-pipeline.md](briefs/release-pipeline.md), still open)
+  landed 2026-08-20 — [briefs/packaging.md](briefs/packaging.md) is done;
+  [briefs/release-pipeline.md](briefs/release-pipeline.md) shipped v0.1.0 on
+  2026-08-21 — only the npm trusted-publisher click remains)
 
 In short: **the coding agent is real; the learning layer — the actual moat — is not
 started.**

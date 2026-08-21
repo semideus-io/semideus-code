@@ -30,7 +30,7 @@ import { formatSessionLine, pickSessionId } from "./session-picker";
 // Single source of truth: the package version, inlined at bundle time (ADR-0010).
 const VERSION: string = pkg.version;
 
-const HELP = `daimon — Semideus Code (phase 1)
+const HELP = `daimon — Semideus Code
 
 usage:
   daimon                       interactive TUI
