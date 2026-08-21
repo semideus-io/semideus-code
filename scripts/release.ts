@@ -91,8 +91,8 @@ if (import.meta.main) {
     run(["bun", "run", "build"]);
     const binary = `dist/${host}`;
     const printed = run([binary, "--version"], { capture: true });
-    if (printed !== next) {
-      throw new Error(`${binary} --version printed "${printed}", expected "${next}"`);
+    if (printed !== `daimon ${next}`) {
+      throw new Error(`${binary} --version printed "${printed}", expected "daimon ${next}"`);
     }
     // Live smoke through the compiled binary — read-only task on the cheap model.
     console.log(`release: smoking ${binary} against the live API (cheap model)…`);

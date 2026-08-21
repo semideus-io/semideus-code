@@ -56,7 +56,7 @@ jobs:
         run: |
           chmod +x daimon-linux-x64
           V=$(./daimon-linux-x64 --version)
-          [ "$V" = "${GITHUB_REF_NAME#v}" ] || { echo "::error::--version printed '$V', tag says '${GITHUB_REF_NAME#v}'"; exit 1; }
+          [ "$V" = "daimon ${GITHUB_REF_NAME#v}" ] || { echo "::error::--version printed '$V', tag says '${GITHUB_REF_NAME#v}'"; exit 1; }
           ./daimon-linux-x64 --help
           ./daimon-linux-x64 sessions
 
@@ -71,7 +71,7 @@ jobs:
         run: |
           chmod +x daimon-darwin-arm64
           V=$(./daimon-darwin-arm64 --version)
-          [ "$V" = "${GITHUB_REF_NAME#v}" ] || { echo "::error::--version printed '$V', tag says '${GITHUB_REF_NAME#v}'"; exit 1; }
+          [ "$V" = "daimon ${GITHUB_REF_NAME#v}" ] || { echo "::error::--version printed '$V', tag says '${GITHUB_REF_NAME#v}'"; exit 1; }
           ./daimon-darwin-arm64 --help
           ./daimon-darwin-arm64 sessions
 
@@ -86,7 +86,7 @@ jobs:
         shell: bash
         run: |
           V=$(./daimon-windows-x64.exe --version)
-          [ "$V" = "${GITHUB_REF_NAME#v}" ] || { echo "::error::--version printed '$V', tag says '${GITHUB_REF_NAME#v}'"; exit 1; }
+          [ "$V" = "daimon ${GITHUB_REF_NAME#v}" ] || { echo "::error::--version printed '$V', tag says '${GITHUB_REF_NAME#v}'"; exit 1; }
           ./daimon-windows-x64.exe --help
 
   release:
